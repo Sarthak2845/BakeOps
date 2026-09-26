@@ -1,0 +1,299 @@
+{
+  "info": {
+    "name": "BakeOps API",
+    "_postman_id": "bakeops-backend-mvp",
+    "description": "Core loop: register -> login -> customers -> orders -> invoices. Run requests top-to-bottom on a fresh environment; each request that creates a resource auto-saves its id into collection variables for the next request.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000" },
+    { "key": "token", "value": "" },
+    { "key": "businessId", "value": "" },
+    { "key": "businessSlug", "value": "" },
+    { "key": "customerId", "value": "" },
+    { "key": "orderId", "value": "" },
+    { "key": "invoiceId", "value": "" },
+    { "key": "invoiceNumber", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/health",
+        "auth": { "type": "noauth" }
+      }
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register business + owner",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('token', body.token);",
+                  "pm.collectionVariables.set('businessId', body.business.id);",
+                  "pm.collectionVariables.set('businessSlug', body.business.slug);",
+                  "pm.test('registered', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/register",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessName\": \"Mom's Cakes\",\n  \"category\": \"Bakery\",\n  \"ownerName\": \"Mom\",\n  \"email\": \"mom+{{$randomInt}}@example.com\",\n  \"password\": \"supersecret123\",\n  \"phone\": \"9999900000\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.token) { pm.collectionVariables.set('token', body.token); }",
+                  "pm.test('logged in', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/login",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"<paste the email you registered with>\",\n  \"password\": \"supersecret123\"\n}"
+            },
+            "description": "Register auto-fills the token, so you don't need to run this to continue the flow below. Use it to test logging back in with a known email."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Business",
+      "item": [
+        {
+          "name": "Get my business",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/business/me" }
+        },
+        {
+          "name": "Update my business",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/business/me",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"12 Baker Street, Delhi\",\n  \"gstin\": \"07ABCDE1234F1Z5\",\n  \"currency\": \"INR\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customers",
+      "item": [
+        {
+          "name": "Create customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.customer) { pm.collectionVariables.set('customerId', body.customer.id); }",
+                  "pm.test('created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/customers",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Mrs Sharma\",\n  \"phone\": \"9876500001\",\n  \"address\": \"14 MG Road\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List customers",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/customers?search=Sharma" }
+        },
+        {
+          "name": "Get customer detail",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/customers/{{customerId}}" }
+        },
+        {
+          "name": "Update customer",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/customers/{{customerId}}",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"notes\": \"Prefers eggless cakes\"\n}" }
+          }
+        },
+        {
+          "name": "Add occasion (birthday)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/customers/{{customerId}}/occasions",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"label\": \"Birthday\",\n  \"month\": 3,\n  \"day\": 14\n}" }
+          }
+        },
+        {
+          "name": "Delete customer",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/api/customers/{{customerId}}" }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Create order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.order) { pm.collectionVariables.set('orderId', body.order.id); }",
+                  "pm.test('created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{customerId}}\",\n  \"occasionTag\": \"Birthday\",\n  \"deliveryDate\": \"2026-10-05\",\n  \"advancePaid\": 200,\n  \"items\": [\n    { \"description\": \"2kg chocolate truffle cake\", \"quantity\": 1, \"unitPrice\": 1800 },\n    { \"description\": \"Candles\", \"quantity\": 1, \"unitPrice\": 50 }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "List orders",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/orders?status=INQUIRY" }
+        },
+        {
+          "name": "Get order",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/orders/{{orderId}}" }
+        },
+        {
+          "name": "Update order",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/orders/{{orderId}}",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"advancePaid\": 300\n}" }
+          }
+        },
+        {
+          "name": "Advance status -> CONFIRMED",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/orders/{{orderId}}/status",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"CONFIRMED\"\n}" }
+          }
+        },
+        {
+          "name": "Generate invoice",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.invoice) {",
+                  "  pm.collectionVariables.set('invoiceId', body.invoice.id);",
+                  "  pm.collectionVariables.set('invoiceNumber', body.invoice.invoiceNumber);",
+                  "}",
+                  "pm.test('created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "POST", "url": "{{baseUrl}}/api/orders/{{orderId}}/invoice" }
+        },
+        {
+          "name": "Delete order",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/api/orders/{{orderId}}" },
+          "description": "Will 400 once an invoice exists for this order — that's expected/tested behavior."
+        }
+      ]
+    },
+    {
+      "name": "Invoices",
+      "item": [
+        {
+          "name": "List invoices",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/invoices" }
+        },
+        {
+          "name": "Get invoice",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/invoices/{{invoiceId}}" }
+        },
+        {
+          "name": "Log payment (partial)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/invoices/{{invoiceId}}/payments",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 500,\n  \"method\": \"cash\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Log payment (settle balance)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/invoices/{{invoiceId}}/payments",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1500,\n  \"method\": \"upi\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public Receipt",
+      "item": [
+        {
+          "name": "View shareable receipt (HTML, no auth)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/r/{{businessSlug}}/{{invoiceNumber}}",
+            "auth": { "type": "noauth" }
+          }
+        }
+      ]
+    }
+  ]
+}
