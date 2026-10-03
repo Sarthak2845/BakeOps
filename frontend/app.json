@@ -7,13 +7,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "bakeops",
     "userInterfaceStyle": "light",
-    "backgroundColor": "#F5EAD8",
-    "ios": {
-      "icon": "./assets/expo.icon"
-    },
+    "backgroundColor": "#F7F6FD",
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -29,9 +25,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#F5EAD8",
+          "backgroundColor": "#F7F6FD",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 140
         }
       ],
       "expo-sharing"
