@@ -31,7 +31,11 @@ export async function listCustomers(businessId: string, query: ListCustomersQuer
     ];
   }
 
-  return prisma.customer.findMany({ where, orderBy: { createdAt: "desc" } });
+  return prisma.customer.findMany({
+    where,
+    include: { occasions: true },
+    orderBy: { createdAt: "desc" },
+  });
 }
 
 async function findCustomerOrThrow(businessId: string, customerId: string) {

@@ -33,10 +33,11 @@ export async function register(input: RegisterInput) {
     include: { users: true },
   });
 
-  const owner = business.users[0];
+  const { users, ...businessWithoutUsers } = business;
+  const owner = users[0];
   const token = signToken({ userId: owner.id, businessId: business.id, role: owner.role });
 
-  return { token, business, user: owner };
+  return { token, business: businessWithoutUsers, user: owner };
 }
 
 export async function login(input: LoginInput) {

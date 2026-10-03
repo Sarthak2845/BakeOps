@@ -70,7 +70,7 @@ export async function generateInvoice(businessId: string, orderId: string) {
 export async function listInvoices(businessId: string, query: ListInvoicesQuery) {
   return prisma.invoice.findMany({
     where: { businessId, ...(query.paymentStatus ? { paymentStatus: query.paymentStatus } : {}) },
-    include: { order: { include: { customer: true } } },
+    include: { order: { include: { customer: true } }, payments: true },
     orderBy: { issuedDate: "desc" },
   });
 }
