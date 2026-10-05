@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { DbClient, DbTransaction } from "../../prisma";
 
 function prefixFromName(name: string): string {
   const alpha = name.replace(/[^a-zA-Z]/g, "").toUpperCase();
@@ -6,7 +6,7 @@ function prefixFromName(name: string): string {
 }
 
 export async function nextInvoiceNumber(
-  tx: Prisma.TransactionClient | PrismaClient,
+  tx: DbTransaction | DbClient,
   businessId: string,
   businessName: string
 ): Promise<string> {

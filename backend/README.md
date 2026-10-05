@@ -21,6 +21,32 @@ REST API for the BakeOps MVP: business onboarding, customers, orders, and invoic
 - `npm run prisma:migrate` — create/apply a migration
 - `npm run prisma:generate` — regenerate the Prisma client after schema changes
 
+## Logging & Debugging
+
+Logs are structured JSON (one object per line, via [pino](https://getpino.io)) written to stdout. In local dev they are pretty-printed instead; set `LOG_PRETTY=false` to see raw JSON. Settings live in `.env` — see `.env.example` (`LOG_LEVEL`, `LOG_PRETTY`, `LOG_SLOW_QUERY_MS`).
+
+**Every line carries** `time` (ISO 8601), `level`, `module` (`http`, `db`, `auth`, `orders`, `invoices`, `error`) and, while handling a request, `requestId` plus `businessId`/`userId` once the caller is authenticated.
+
+**Tracing a request.** Each request gets a `requestId` — taken from an incoming `X-Request-Id` header if present, otherwise a generated UUID. It is returned in the `X-Request-Id` response header and in every error body (`error.requestId`). Given an id from a bug report:
+
+```sh
+grep "<requestId>" app.log            # full trace: request -> db ops -> events -> errors -> response
+```
+
+| What | Where to look |
+|---|---|
+| Request summary | `module=http` — method, path, status, `durationMs`, ip, user agent. 4xx → `warn`, 5xx → `error`, client disconnects → `aborted: true` |
+| Rejected requests | `module=error` — `validation failed` lists failing fields (`issues[].path`) without the submitted values; `request rejected` gives the `ApiError` reason |
+| Crashes (500) | `unhandled error` at `error` level with full stack (`err.stack`) and Prisma `prismaCode`/`prismaMeta` when relevant |
+| DB | `db operation` (debug) / `slow db operation` (warn, over `LOG_SLOW_QUERY_MS`) / `db operation failed` (error) with `model`, `operation`, `durationMs`. Query arguments are never logged |
+| Business events | `event` field, e.g. `grep "\"orderId\":\"<id>\""` shows an order’s full history |
+
+**Business events:** `order.created`, `order.updated`, `order.status_changed` (`fromStatus`/`toStatus`), `order.status_change_rejected`, `order.update_blocked`, `order.deleted`, `order.delete_blocked`, `invoice.created`, `invoice.pdf_generated`, `invoice.pdf_failed`, `invoice.generate_rejected`, `invoice.payment_recorded`, `invoice.overpaid`, `receipt.viewed`, `receipt.not_found`, `auth.business_registered`, `auth.login_succeeded`, `auth.login_failed` (`reason`: `unknown_email`/`bad_password`), `auth.register_conflict`.
+
+Passwords, tokens and the `Authorization` header are redacted; emails in auth events are masked (`j***@example.com`).
+
+With [jq](https://jqlang.org): `npm run dev | jq -c "select(.level==\"error\")"` (with `LOG_PRETTY=false`), or `jq -c "select(.event==\"order.status_changed\")" app.log`.
+
 ## Auth
 
 All endpoints except `POST /api/auth/*` and `GET /r/:slug/:invoiceNumber` require:

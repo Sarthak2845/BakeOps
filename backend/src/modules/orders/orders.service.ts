@@ -1,11 +1,14 @@
 import { Prisma, type OrderStatus } from "@prisma/client";
 import { prisma } from "../../prisma";
 import { ApiError } from "../../utils/apiError";
+import { moduleLogger } from "../../utils/logger";
 import type {
   CreateOrderInput,
   ListOrdersQuery,
   UpdateOrderInput,
 } from "./orders.schema";
+
+const log = moduleLogger("orders");
 
 const STATUS_ORDER = ["INQUIRY", "CONFIRMED", "IN_PROGRESS", "READY", "DELIVERED"] as const;
 
@@ -56,7 +59,7 @@ export async function createOrder(businessId: string, input: CreateOrderInput) {
 
   const { lineItems, totalAmount, balanceDue } = computeTotals(input.items, input.advancePaid);
 
-  return prisma.order.create({
+  const order = await prisma.order.create({
     data: {
       businessId,
       customerId: input.customerId,
@@ -71,6 +74,23 @@ export async function createOrder(businessId: string, input: CreateOrderInput) {
     },
     include: { items: true, customer: true },
   });
+
+  log.info(
+    {
+      event: "order.created",
+      orderId: order.id,
+      customerId: order.customerId,
+      status: order.status,
+      itemCount: lineItems.length,
+      totalAmount,
+      advancePaid: input.advancePaid,
+      balanceDue,
+      deliveryDate: order.deliveryDate,
+    },
+    "order created"
+  );
+
+  return order;
 }
 
 export async function listOrders(businessId: string, query: ListOrdersQuery) {
@@ -110,6 +130,7 @@ export async function updateOrder(businessId: string, orderId: string, input: Up
   const order = await findOrderOrThrow(businessId, orderId);
 
   if (order.status === "DELIVERED" || order.status === "CANCELLED") {
+    log.warn({ event: "order.update_blocked", orderId, status: order.status }, "edit blocked on closed order");
     throw ApiError.badRequest(`Cannot edit an order that is already ${order.status.toLowerCase()}`);
   }
 
@@ -122,7 +143,7 @@ export async function updateOrder(businessId: string, orderId: string, input: Up
 
   const { lineItems, totalAmount, balanceDue } = computeTotals(items, advancePaid);
 
-  return prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     if (input.items) {
       await tx.orderItem.deleteMany({ where: { orderId } });
     }
@@ -141,23 +162,63 @@ export async function updateOrder(businessId: string, orderId: string, input: Up
       include: { items: true, customer: true, invoice: true },
     });
   });
+
+  log.info(
+    {
+      event: "order.updated",
+      orderId,
+      changedFields: Object.keys(input).filter((k) => input[k as keyof UpdateOrderInput] !== undefined),
+      itemsReplaced: Boolean(input.items),
+      totalAmount: { from: Number(order.totalAmount), to: totalAmount },
+      balanceDue: { from: Number(order.balanceDue), to: balanceDue },
+    },
+    "order updated"
+  );
+
+  return updated;
 }
 
 export async function updateOrderStatus(businessId: string, orderId: string, status: string) {
   const order = await findOrderOrThrow(businessId, orderId);
-  assertValidTransition(order.status, status);
 
-  return prisma.order.update({
+  try {
+    assertValidTransition(order.status, status);
+  } catch (err) {
+    log.warn(
+      { event: "order.status_change_rejected", orderId, fromStatus: order.status, toStatus: status },
+      "invalid order status transition"
+    );
+    throw err;
+  }
+
+  const updated = await prisma.order.update({
     where: { id: orderId },
     data: { status: status as OrderStatus },
     include: { items: true, customer: true, invoice: true },
   });
+
+  if (order.status !== status) {
+    log.info(
+      { event: "order.status_changed", orderId, fromStatus: order.status, toStatus: status },
+      `order status ${order.status} -> ${status}`
+    );
+  }
+
+  return updated;
 }
 
 export async function deleteOrder(businessId: string, orderId: string) {
   const order = await findOrderOrThrow(businessId, orderId);
   if (order.invoice) {
+    log.warn(
+      { event: "order.delete_blocked", orderId, invoiceId: order.invoice.id },
+      "delete blocked: order has an invoice"
+    );
     throw ApiError.badRequest("Cannot delete an order that already has an invoice");
   }
   await prisma.order.delete({ where: { id: orderId } });
+  log.info(
+    { event: "order.deleted", orderId, status: order.status, totalAmount: Number(order.totalAmount) },
+    "order deleted"
+  );
 }
