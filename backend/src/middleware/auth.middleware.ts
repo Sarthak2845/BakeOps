@@ -1,6 +1,10 @@
 import type { NextFunction, Request, Response } from "express";
 import { ApiError } from "../utils/apiError";
 import { verifyToken, type JwtPayload } from "../utils/jwt";
+import { moduleLogger } from "../utils/logger";
+import { setRequestContext } from "../utils/requestContext";
+
+const log = moduleLogger("auth");
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -21,9 +25,11 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
 
   try {
     req.auth = verifyToken(token);
-  } catch {
+  } catch (err) {
+    log.warn({ reason: (err as Error).name }, "token verification failed");
     throw ApiError.unauthorized("Invalid or expired token");
   }
 
+  setRequestContext({ businessId: req.auth.businessId, userId: req.auth.userId });
   next();
 }

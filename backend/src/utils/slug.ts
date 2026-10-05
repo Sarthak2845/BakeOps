@@ -1,8 +1,8 @@
 import slugify from "slugify";
-import type { PrismaClient } from "@prisma/client";
+import type { DbClient } from "../prisma";
 
 export async function generateUniqueBusinessSlug(
-  prisma: PrismaClient,
+  prisma: DbClient,
   name: string
 ): Promise<string> {
   const base = slugify(name, { lower: true, strict: true }) || "business";

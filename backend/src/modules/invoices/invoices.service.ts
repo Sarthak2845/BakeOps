@@ -2,9 +2,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "../../prisma";
 import { ApiError } from "../../utils/apiError";
+import { moduleLogger } from "../../utils/logger";
 import { nextInvoiceNumber } from "./invoiceNumber";
 import { renderInvoicePdf } from "./invoice.pdf";
 import type { CreatePaymentInput, ListInvoicesQuery } from "./invoices.schema";
+
+const log = moduleLogger("invoices");
 
 const STORAGE_DIR = path.join(__dirname, "..", "..", "..", "storage", "invoices");
 
@@ -21,10 +24,20 @@ export async function generateInvoice(businessId: string, orderId: string) {
     include: { items: true, customer: true, invoice: true, business: true },
   });
   if (!order) throw ApiError.notFound("Order not found");
-  if (order.invoice) throw ApiError.conflict("This order already has an invoice", {
-    invoiceId: order.invoice.id,
-  });
+  if (order.invoice) {
+    log.warn(
+      { event: "invoice.generate_rejected", orderId, invoiceId: order.invoice.id, reason: "already_invoiced" },
+      "order already has an invoice"
+    );
+    throw ApiError.conflict("This order already has an invoice", {
+      invoiceId: order.invoice.id,
+    });
+  }
   if (order.status === "CANCELLED") {
+    log.warn(
+      { event: "invoice.generate_rejected", orderId, reason: "order_cancelled" },
+      "cannot invoice a cancelled order"
+    );
     throw ApiError.badRequest("Cannot generate an invoice for a cancelled order");
   }
 
@@ -40,25 +53,55 @@ export async function generateInvoice(businessId: string, orderId: string) {
     });
   });
 
-  const pdfBuffer = await renderInvoicePdf({
-    invoiceNumber: invoice.invoiceNumber,
-    issuedDate: invoice.issuedDate,
-    business: order.business,
-    customer: order.customer,
-    items: order.items.map((i) => ({
-      description: i.description,
-      quantity: Number(i.quantity),
-      unitPrice: Number(i.unitPrice),
-      lineTotal: Number(i.lineTotal),
-    })),
-    totalAmount: Number(order.totalAmount),
-    advancePaid: Number(order.advancePaid),
-    balanceDue: Number(order.balanceDue),
-    paymentStatus: invoice.paymentStatus,
-    currency: order.business.currency,
-  });
+  log.info(
+    { event: "invoice.created", invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber, orderId },
+    "invoice record created"
+  );
 
-  const pdfUrl = await writeInvoicePdf(invoice.invoiceNumber, pdfBuffer);
+  // The invoice row is already committed at this point. If the PDF step
+  // fails, the invoice exists without a pdfUrl, so log enough to find and
+  // repair it.
+  let pdfUrl: string;
+  const pdfStartedAt = performance.now();
+  try {
+    const pdfBuffer = await renderInvoicePdf({
+      invoiceNumber: invoice.invoiceNumber,
+      issuedDate: invoice.issuedDate,
+      business: order.business,
+      customer: order.customer,
+      items: order.items.map((i) => ({
+        description: i.description,
+        quantity: Number(i.quantity),
+        unitPrice: Number(i.unitPrice),
+        lineTotal: Number(i.lineTotal),
+      })),
+      totalAmount: Number(order.totalAmount),
+      advancePaid: Number(order.advancePaid),
+      balanceDue: Number(order.balanceDue),
+      paymentStatus: invoice.paymentStatus,
+      currency: order.business.currency,
+    });
+
+    pdfUrl = await writeInvoicePdf(invoice.invoiceNumber, pdfBuffer);
+    log.info(
+      {
+        event: "invoice.pdf_generated",
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        orderId,
+        pdfUrl,
+        sizeBytes: pdfBuffer.length,
+        durationMs: Math.round(performance.now() - pdfStartedAt),
+      },
+      "invoice PDF generated"
+    );
+  } catch (err) {
+    log.error(
+      { event: "invoice.pdf_failed", err, invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber, orderId },
+      "invoice PDF generation failed; invoice exists without a PDF"
+    );
+    throw err;
+  }
 
   return prisma.invoice.update({
     where: { id: invoice.id },
@@ -90,14 +133,27 @@ export async function getInvoice(businessId: string, invoiceId: string) {
 
 export async function getPublicInvoice(slug: string, invoiceNumber: string) {
   const business = await prisma.business.findUnique({ where: { slug } });
-  if (!business) throw ApiError.notFound("Not found");
+  if (!business) {
+    log.warn({ event: "receipt.not_found", slug, invoiceNumber, reason: "unknown_business" }, "public receipt not found");
+    throw ApiError.notFound("Not found");
+  }
 
   const invoice = await prisma.invoice.findUnique({
     where: { businessId_invoiceNumber: { businessId: business.id, invoiceNumber } },
     include: { order: { include: { items: true, customer: true } } },
   });
-  if (!invoice) throw ApiError.notFound("Not found");
+  if (!invoice) {
+    log.warn(
+      { event: "receipt.not_found", businessId: business.id, slug, invoiceNumber, reason: "unknown_invoice" },
+      "public receipt not found"
+    );
+    throw ApiError.notFound("Not found");
+  }
 
+  log.info(
+    { event: "receipt.viewed", businessId: business.id, invoiceId: invoice.id, invoiceNumber },
+    "public receipt viewed"
+  );
   return { business, invoice };
 }
 
@@ -110,7 +166,7 @@ function recomputePaymentStatus(totalAmount: number, paidSoFar: number): "UNPAID
 export async function addPayment(businessId: string, invoiceId: string, input: CreatePaymentInput) {
   const invoice = await findInvoiceOrThrow(businessId, invoiceId);
 
-  return prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     await tx.payment.create({
       data: {
         invoiceId,
@@ -128,10 +184,40 @@ export async function addPayment(businessId: string, invoiceId: string, input: C
 
     await tx.order.update({ where: { id: invoice.orderId }, data: { balanceDue } });
 
-    return tx.invoice.update({
+    const result = await tx.invoice.update({
       where: { id: invoiceId },
       data: { paymentStatus },
       include: { order: { include: { items: true, customer: true } }, payments: true },
     });
+    return { result, paidSoFar, balanceDue, paymentStatus };
   });
+
+  log.info(
+    {
+      event: "invoice.payment_recorded",
+      invoiceId,
+      invoiceNumber: invoice.invoiceNumber,
+      orderId: invoice.orderId,
+      amount: input.amount,
+      method: input.method,
+      paidSoFar: updated.paidSoFar,
+      balanceDue: updated.balanceDue,
+      paymentStatus: { from: invoice.paymentStatus, to: updated.paymentStatus },
+    },
+    "payment recorded"
+  );
+  if (updated.paidSoFar > Number(invoice.order.totalAmount)) {
+    log.warn(
+      {
+        event: "invoice.overpaid",
+        invoiceId,
+        orderId: invoice.orderId,
+        paidSoFar: updated.paidSoFar,
+        totalAmount: Number(invoice.order.totalAmount),
+      },
+      "payments exceed invoice total"
+    );
+  }
+
+  return updated.result;
 }

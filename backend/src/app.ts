@@ -7,11 +7,13 @@ import { customersRouter } from "./modules/customers/customers.routes";
 import { ordersRouter } from "./modules/orders/orders.routes";
 import { invoicesRouter, publicReceiptRouter } from "./modules/invoices/invoices.routes";
 import { errorHandler, notFoundHandler } from "./middleware/error.middleware";
+import { requestLogger } from "./middleware/requestLogger.middleware";
 
 export function createApp() {
   const app = express();
 
-  app.use(cors());
+  app.use(requestLogger);
+  app.use(cors({ exposedHeaders: ["X-Request-Id"] }));
   app.use(express.json());
 
   app.use("/files", express.static(path.join(__dirname, "..", "storage")));
