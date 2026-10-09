@@ -67,6 +67,16 @@ export function errorHandler(
     return;
   }
 
+  // P2000: value too long for column, P2020: value out of range for column type.
+  if (
+    err instanceof Prisma.PrismaClientKnownRequestError &&
+    (err.code === "P2000" || err.code === "P2020")
+  ) {
+    log.warn({ status: 400, prismaCode: err.code, prismaMeta: err.meta }, "value out of range");
+    res.status(400).json({ error: { message: "One or more values are out of range", requestId } });
+    return;
+  }
+
   log.error(
     {
       err,

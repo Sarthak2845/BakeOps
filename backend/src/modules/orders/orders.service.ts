@@ -2,6 +2,7 @@ import { Prisma, type OrderStatus } from "@prisma/client";
 import { prisma } from "../../prisma";
 import { ApiError } from "../../utils/apiError";
 import { moduleLogger } from "../../utils/logger";
+import { MAX_MONEY } from "../../utils/validation";
 import type {
   CreateOrderInput,
   ListOrdersQuery,
@@ -45,6 +46,9 @@ function computeTotals(
     lineTotal: Math.round(item.quantity * item.unitPrice * 100) / 100,
   }));
   const totalAmount = lineItems.reduce((sum, i) => sum + i.lineTotal, 0);
+  if (lineItems.some((i) => i.lineTotal > MAX_MONEY) || totalAmount > MAX_MONEY) {
+    throw ApiError.badRequest(`Order total must be at most ${MAX_MONEY}`);
+  }
   const balanceDue = Math.max(0, Math.round((totalAmount - advancePaid) * 100) / 100);
   return { lineItems, totalAmount, balanceDue };
 }
