@@ -1,13 +1,20 @@
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
+import { FormError } from '@/components/ui/form-error';
 import { Screen } from '@/components/ui/screen';
 import { AppText } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
+import { useToast } from '@/components/ui/toast';
 import { Colors, Radii, Spacing } from '@/constants/theme';
-import { ApiError, businessApi } from '@/lib/api';
+import { businessApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { getErrorMessage, getFieldErrors, type FieldErrors } from '@/lib/errors';
+import { hasErrors, validateLength, validatePhone } from '@/lib/validators';
+
+// 15-character Indian GSTIN: 2-digit state code, PAN, entity code, 'Z', checksum.
+const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 
 const CATEGORIES = ['Bakery', 'Tiffin', 'Tailoring', 'Other'];
 
@@ -19,21 +26,40 @@ export default function SetupScreen() {
   const [gstOn, setGstOn] = useState(!!business?.gstin);
   const [gstin, setGstin] = useState(business?.gstin ?? '');
   const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const toast = useToast();
 
   async function finish() {
+    const gst = gstin.trim().toUpperCase();
+    const next = {
+      name: shopName.trim() ? (validateLength(shopName, 'Shop name', { min: 2, max: 120 }) ?? '') : '',
+      phone: validatePhone(phone, { required: false }) ?? '',
+      gstin: !gstOn
+        ? ''
+        : !gst
+          ? 'Enter your GSTIN, or turn off GST'
+          : !GSTIN_RE.test(gst)
+            ? 'Enter a valid 15-character GSTIN (e.g. 27ABCDE1234F1Z5)'
+            : '',
+    };
+    setErrors(next);
+    setFormError(null);
+    if (hasErrors(next)) return;
+
     setSubmitting(true);
     try {
       const { business: updated } = await businessApi.updateMe({
         name: shopName.trim() || undefined,
         category,
         phone: phone.trim() || undefined,
-        gstin: gstOn ? gstin.trim() || undefined : undefined,
+        gstin: gstOn ? gst : undefined,
       });
       setBusiness(updated);
       completeSetup();
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Something went wrong. Please try again.';
-      Alert.alert('Could not save', message);
+      setErrors(getFieldErrors(err));
+      setFormError(getErrorMessage(err, 'Could not save your shop details. Please try again.'));
     } finally {
       setSubmitting(false);
     }
@@ -56,14 +82,22 @@ export default function SetupScreen() {
 
       <Pressable
         style={styles.logo}
-        onPress={() => Alert.alert('Logo upload', 'Coming soon — you can add this later from Settings.')}>
+        onPress={() => toast.show({ title: 'Logo upload', message: 'Coming soon — you can add this later from Settings.' })}>
         <AppText variant="bodyBold" color={Colors.brand}>
           + LOGO
         </AppText>
       </Pressable>
 
       <View style={styles.form}>
-        <TextField label="Shop name" value={shopName} onChangeText={setShopName} />
+        <TextField
+          label="Shop name"
+          value={shopName}
+          onChangeText={(t) => {
+            setShopName(t);
+            setErrors((e) => ({ ...e, name: '' }));
+          }}
+          error={errors.name}
+        />
 
         <View style={styles.field}>
           <AppText variant="bodyMedium">What do you make?</AppText>
@@ -87,8 +121,12 @@ export default function SetupScreen() {
         <TextField
           label="Phone shown to customers"
           value={phone}
-          onChangeText={setPhone}
+          onChangeText={(t) => {
+            setPhone(t);
+            setErrors((e) => ({ ...e, phone: '' }));
+          }}
           keyboardType="phone-pad"
+          error={errors.phone}
         />
 
         <View style={styles.gstRow}>
@@ -101,7 +139,18 @@ export default function SetupScreen() {
           <Switch value={gstOn} onValueChange={setGstOn} trackColor={{ true: Colors.brand }} />
         </View>
 
-        {gstOn ? <TextField label="GSTIN" value={gstin} onChangeText={setGstin} autoCapitalize="characters" /> : null}
+        {gstOn ? (
+          <TextField
+            label="GSTIN"
+            value={gstin}
+            onChangeText={(t) => {
+              setGstin(t);
+              setErrors((e) => ({ ...e, gstin: '' }));
+            }}
+            autoCapitalize="characters"
+            error={errors.gstin}
+          />
+        ) : null}
 
         {business ? (
           <View style={styles.linkCard}>
@@ -111,6 +160,7 @@ export default function SetupScreen() {
         ) : null}
       </View>
 
+      <FormError message={formError} />
       <Button label="Continue" onPress={finish} loading={submitting} />
     </Screen>
   );

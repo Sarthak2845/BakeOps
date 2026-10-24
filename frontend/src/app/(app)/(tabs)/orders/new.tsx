@@ -1,17 +1,31 @@
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { FormError } from '@/components/ui/form-error';
 import { Screen } from '@/components/ui/screen';
 import { AppText } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
+import { useToast } from '@/components/ui/toast';
 import { Colors, Radii, Spacing } from '@/constants/theme';
-import { ApiError, customersApi } from '@/lib/api';
+import { customersApi } from '@/lib/api';
+import { getErrorMessage, getFieldErrors, type FieldErrors } from '@/lib/errors';
 import { useCreateCustomer, useCreateOrder, useCustomers } from '@/lib/queries';
 import type { Customer } from '@/lib/types';
+import {
+  MAX_MONEY,
+  hasErrors,
+  parseDateInput,
+  parseMonthDay,
+  validateDateInput,
+  validateLength,
+  validateMoney,
+  validatePhone,
+  validateQuantity,
+} from '@/lib/validators';
 
 interface ItemRow {
   description: string;
@@ -19,7 +33,10 @@ interface ItemRow {
   unitPrice: string;
 }
 
+const isBlankRow = (row: ItemRow) => !row.description.trim() && !row.unitPrice.trim() && (!row.quantity.trim() || row.quantity.trim() === '1');
+
 export default function NewOrderScreen() {
+  const toast = useToast();
   const [customerQuery, setCustomerQuery] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [showNewCustomer, setShowNewCustomer] = useState(false);
@@ -33,8 +50,11 @@ export default function NewOrderScreen() {
   const [advancePaid, setAdvancePaid] = useState('');
   const [items, setItems] = useState<ItemRow[]>([{ description: '', quantity: '1', unitPrice: '' }]);
   const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const { data: customers = [] } = useCustomers(customerQuery.length >= 2 ? customerQuery : undefined);
+  const customersQuery = useCustomers(customerQuery.length >= 2 ? customerQuery : undefined);
+  const customers = customersQuery.data ?? [];
   const createCustomer = useCreateCustomer();
   const createOrder = useCreateOrder();
 
@@ -43,8 +63,18 @@ export default function NewOrderScreen() {
     [items]
   );
 
+  function clearError(...fields: string[]) {
+    setErrors((prev) => {
+      if (!fields.some((f) => prev[f])) return prev;
+      const next = { ...prev };
+      for (const f of fields) delete next[f];
+      return next;
+    });
+  }
+
   function updateItem(index: number, patch: Partial<ItemRow>) {
     setItems((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+    clearError('items', ...Object.keys(patch).map((k) => `items.${index}.${k}`));
   }
 
   function addItemRow() {
@@ -53,56 +83,106 @@ export default function NewOrderScreen() {
 
   function removeItemRow(index: number) {
     setItems((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
+    // Row indexes shift, so per-row errors no longer line up.
+    setErrors((prev) => Object.fromEntries(Object.entries(prev).filter(([k]) => !k.startsWith('items'))));
   }
 
-  async function resolveCustomerId(): Promise<string | null> {
-    if (selectedCustomer) return selectedCustomer.id;
-    if (!newName.trim() || !newPhone.trim()) {
-      Alert.alert('Missing details', 'Enter the new customer’s name and phone number.');
-      return null;
+  function validate(): FieldErrors {
+    const next: FieldErrors = {};
+    const set = (key: string, message: string | null) => {
+      if (message) next[key] = message;
+    };
+
+    if (!selectedCustomer) {
+      if (!showNewCustomer) {
+        next.customer = 'Pick a customer from the search, or add a new one.';
+      } else {
+        set('customerName', newName.trim() ? validateLength(newName, 'Name', { max: 120 }) : 'Customer name is required');
+        set('customerPhone', validatePhone(newPhone));
+        if (occasionLabel.trim() || occasionDate.trim()) {
+          set('occasionLabel', occasionLabel.trim() ? validateLength(occasionLabel, 'Occasion', { max: 60 }) : 'Add a name for the occasion');
+          if (!parseMonthDay(occasionDate)) next.occasionDate = 'Use MM-DD, e.g. 03-14';
+        }
+      }
     }
-    const { customer } = await createCustomer.mutateAsync({ name: newName.trim(), phone: newPhone.trim() });
-    if (occasionLabel.trim() && occasionDate.trim()) {
-      const [month, day] = occasionDate.split('-').map((n) => parseInt(n, 10));
-      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-        await customersApi.addOccasion(customer.id, { label: occasionLabel.trim(), month, day }).catch(() => {
-          // Occasion is a nice-to-have; don't block order creation if it fails.
-        });
+
+    const filled = items.map((row, index) => ({ row, index })).filter(({ row }) => !isBlankRow(row));
+    if (filled.length === 0) {
+      next.items = 'Add at least one item with a description and price.';
+    }
+    for (const { row, index } of filled) {
+      set(`items.${index}.description`, row.description.trim() ? validateLength(row.description, 'Description', { max: 200 }) : 'Description is required');
+      set(`items.${index}.quantity`, validateQuantity(row.quantity));
+      set(`items.${index}.unitPrice`, validateMoney(row.unitPrice, 'Price', { required: true }));
+    }
+    if (!next.items && total > MAX_MONEY) next.items = 'Order total is too large.';
+
+    set('occasionTag', validateLength(occasionTag, 'Occasion tag', { max: 60 }));
+    set('deliveryDate', validateDateInput(deliveryDate, 'Delivery date'));
+    set('advancePaid', validateMoney(advancePaid, 'Advance paid'));
+
+    return next;
+  }
+
+  async function resolveCustomerId(): Promise<string> {
+    if (selectedCustomer) return selectedCustomer.id;
+
+    let customer: Customer;
+    try {
+      ({ customer } = await createCustomer.mutateAsync({ name: newName.trim(), phone: newPhone.trim() }));
+    } catch (err) {
+      const fieldErrors = getFieldErrors(err);
+      setErrors({
+        ...(fieldErrors.name ? { customerName: fieldErrors.name } : {}),
+        ...(fieldErrors.phone ? { customerPhone: fieldErrors.phone } : {}),
+      });
+      throw err;
+    }
+
+    // Remember the created customer so a retry after a failed order doesn't create a duplicate.
+    setSelectedCustomer(customer);
+    setShowNewCustomer(false);
+
+    const md = parseMonthDay(occasionDate);
+    if (occasionLabel.trim() && md) {
+      try {
+        await customersApi.addOccasion(customer.id, { label: occasionLabel.trim(), ...md });
+      } catch (err) {
+        // Occasion is a nice-to-have; don't block order creation, but tell the user.
+        toast.error(getErrorMessage(err), 'Occasion reminder not saved');
       }
     }
     return customer.id;
   }
 
   async function onSubmit() {
-    const validItems = items
-      .map((i) => ({ description: i.description.trim(), quantity: parseFloat(i.quantity), unitPrice: parseFloat(i.unitPrice) }))
-      .filter((i) => i.description && i.quantity > 0 && !Number.isNaN(i.unitPrice));
+    const next = validate();
+    setErrors(next);
+    setFormError(hasErrors(next) ? 'Please fix the highlighted fields.' : null);
+    if (hasErrors(next)) return;
 
-    if (validItems.length === 0) {
-      Alert.alert('Add at least one item', 'Fill in a description, quantity, and price.');
-      return;
-    }
+    const validItems = items
+      .filter((row) => !isBlankRow(row))
+      .map((i) => ({ description: i.description.trim(), quantity: parseFloat(i.quantity), unitPrice: parseFloat(i.unitPrice) }));
+    const delivery = deliveryDate.trim() ? parseDateInput(deliveryDate) : null;
 
     setSubmitting(true);
     try {
       const customerId = await resolveCustomerId();
-      if (!customerId) {
-        setSubmitting(false);
-        return;
-      }
 
       const { order } = await createOrder.mutateAsync({
         customerId,
         items: validItems,
         occasionTag: occasionTag.trim() || undefined,
-        deliveryDate: deliveryDate.trim() ? new Date(deliveryDate.trim()).toISOString() : undefined,
+        deliveryDate: delivery ? delivery.toISOString() : undefined,
         advancePaid: advancePaid.trim() ? parseFloat(advancePaid.trim()) : undefined,
       });
 
+      toast.success('Order created');
       router.replace(`/orders/${order.id}`);
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Something went wrong. Please try again.';
-      Alert.alert('Could not create order', message);
+      setErrors((prev) => ({ ...prev, ...getFieldErrors(err) }));
+      setFormError(getErrorMessage(err, 'Could not create the order. Please try again.'));
     } finally {
       setSubmitting(false);
     }
@@ -141,8 +221,15 @@ export default function NewOrderScreen() {
               onChangeText={(t) => {
                 setCustomerQuery(t);
                 setShowNewCustomer(false);
+                clearError('customer');
               }}
+              error={errors.customer}
             />
+            {customerQuery.length >= 2 && customersQuery.isError ? (
+              <AppText variant="small" color={Colors.dangerSoftText}>
+                Couldn’t search customers. {getErrorMessage(customersQuery.error)}
+              </AppText>
+            ) : null}
             {customerQuery.length >= 2 && customers.length > 0 && (
               <View style={styles.suggestionList}>
                 {customers.slice(0, 5).map((c) => (
@@ -152,6 +239,7 @@ export default function NewOrderScreen() {
                     onPress={() => {
                       setSelectedCustomer(c);
                       setCustomerQuery('');
+                      clearError('customer');
                     }}>
                     <AppText variant="bodyBold">{c.name}</AppText>
                     <AppText variant="small" color={Colors.textMuted}>
@@ -161,15 +249,23 @@ export default function NewOrderScreen() {
                 ))}
               </View>
             )}
-            {customerQuery.length >= 2 && customers.length === 0 && !showNewCustomer ? (
-              <Pressable onPress={() => setShowNewCustomer(true)}>
+            {customerQuery.length >= 2 && customersQuery.isSuccess && customers.length === 0 && !showNewCustomer ? (
+              <Pressable
+                onPress={() => {
+                  setShowNewCustomer(true);
+                  clearError('customer');
+                }}>
                 <AppText variant="bodyBold" color={Colors.brand}>
                   + Add "{customerQuery}" as a new customer
                 </AppText>
               </Pressable>
             ) : null}
             {!showNewCustomer && customerQuery.length < 2 ? (
-              <Pressable onPress={() => setShowNewCustomer(true)}>
+              <Pressable
+                onPress={() => {
+                  setShowNewCustomer(true);
+                  clearError('customer');
+                }}>
                 <AppText variant="bodyBold" color={Colors.brand}>
                   + New customer
                 </AppText>
@@ -177,17 +273,54 @@ export default function NewOrderScreen() {
             ) : null}
             {showNewCustomer ? (
               <View style={styles.newCustomerForm}>
-                <TextField label="Name" placeholder="Customer name" value={newName} onChangeText={setNewName} />
-                <TextField label="Phone" placeholder="10-digit number" value={newPhone} onChangeText={setNewPhone} keyboardType="phone-pad" />
+                <TextField
+                  label="Name"
+                  placeholder="Customer name"
+                  value={newName}
+                  onChangeText={(t) => {
+                    setNewName(t);
+                    clearError('customerName');
+                  }}
+                  error={errors.customerName}
+                />
+                <TextField
+                  label="Phone"
+                  placeholder="10-digit number"
+                  value={newPhone}
+                  onChangeText={(t) => {
+                    setNewPhone(t);
+                    clearError('customerPhone');
+                  }}
+                  keyboardType="phone-pad"
+                  error={errors.customerPhone}
+                />
                 <AppText variant="small" color={Colors.textMuted}>
                   Optional — remind them next year automatically
                 </AppText>
                 <View style={styles.occasionRow}>
                   <View style={{ flex: 2 }}>
-                    <TextField label="Occasion" placeholder="Birthday" value={occasionLabel} onChangeText={setOccasionLabel} />
+                    <TextField
+                      label="Occasion"
+                      placeholder="Birthday"
+                      value={occasionLabel}
+                      onChangeText={(t) => {
+                        setOccasionLabel(t);
+                        clearError('occasionLabel');
+                      }}
+                      error={errors.occasionLabel}
+                    />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <TextField label="Date (MM-DD)" placeholder="03-14" value={occasionDate} onChangeText={setOccasionDate} />
+                    <TextField
+                      label="Date (MM-DD)"
+                      placeholder="03-14"
+                      value={occasionDate}
+                      onChangeText={(t) => {
+                        setOccasionDate(t);
+                        clearError('occasionDate');
+                      }}
+                      error={errors.occasionDate}
+                    />
                   </View>
                 </View>
               </View>
@@ -200,13 +333,30 @@ export default function NewOrderScreen() {
         <AppText variant="bodyMedium">Items</AppText>
         {items.map((item, index) => (
           <Card key={index} style={styles.itemCard}>
-            <TextField placeholder="Description (e.g. 1kg chocolate cake)" value={item.description} onChangeText={(t) => updateItem(index, { description: t })} />
+            <TextField
+              placeholder="Description (e.g. 1kg chocolate cake)"
+              value={item.description}
+              onChangeText={(t) => updateItem(index, { description: t })}
+              error={errors[`items.${index}.description`]}
+            />
             <View style={styles.itemNumbersRow}>
               <View style={{ flex: 1 }}>
-                <TextField placeholder="Qty" value={item.quantity} onChangeText={(t) => updateItem(index, { quantity: t })} keyboardType="numeric" />
+                <TextField
+                  placeholder="Qty"
+                  value={item.quantity}
+                  onChangeText={(t) => updateItem(index, { quantity: t })}
+                  keyboardType="numeric"
+                  error={errors[`items.${index}.quantity`]}
+                />
               </View>
               <View style={{ flex: 2 }}>
-                <TextField placeholder="Unit price" value={item.unitPrice} onChangeText={(t) => updateItem(index, { unitPrice: t })} keyboardType="numeric" />
+                <TextField
+                  placeholder="Unit price"
+                  value={item.unitPrice}
+                  onChangeText={(t) => updateItem(index, { unitPrice: t })}
+                  keyboardType="numeric"
+                  error={errors[`items.${index}.unitPrice`]}
+                />
               </View>
               {items.length > 1 ? (
                 <Pressable onPress={() => removeItemRow(index)} style={styles.removeButton}>
@@ -216,6 +366,11 @@ export default function NewOrderScreen() {
             </View>
           </Card>
         ))}
+        {errors.items ? (
+          <AppText variant="small" color={Colors.dangerSoftText}>
+            {errors.items}
+          </AppText>
+        ) : null}
         <Pressable onPress={addItemRow}>
           <AppText variant="bodyBold" color={Colors.brand}>
             + Add item
@@ -224,9 +379,37 @@ export default function NewOrderScreen() {
       </View>
 
       <View style={styles.section}>
-        <TextField label="Occasion tag (optional)" placeholder="Birthday, Anniversary, Festival..." value={occasionTag} onChangeText={setOccasionTag} />
-        <TextField label="Delivery date (optional)" placeholder="YYYY-MM-DD" value={deliveryDate} onChangeText={setDeliveryDate} />
-        <TextField label="Advance paid (optional)" placeholder="0" value={advancePaid} onChangeText={setAdvancePaid} keyboardType="numeric" />
+        <TextField
+          label="Occasion tag (optional)"
+          placeholder="Birthday, Anniversary, Festival..."
+          value={occasionTag}
+          onChangeText={(t) => {
+            setOccasionTag(t);
+            clearError('occasionTag');
+          }}
+          error={errors.occasionTag}
+        />
+        <TextField
+          label="Delivery date (optional)"
+          placeholder="YYYY-MM-DD"
+          value={deliveryDate}
+          onChangeText={(t) => {
+            setDeliveryDate(t);
+            clearError('deliveryDate');
+          }}
+          error={errors.deliveryDate}
+        />
+        <TextField
+          label="Advance paid (optional)"
+          placeholder="0"
+          value={advancePaid}
+          onChangeText={(t) => {
+            setAdvancePaid(t);
+            clearError('advancePaid');
+          }}
+          keyboardType="numeric"
+          error={errors.advancePaid}
+        />
       </View>
 
       <Card tone="muted" style={styles.totalRow}>
@@ -234,6 +417,7 @@ export default function NewOrderScreen() {
         <AppText variant="h2">₹{total.toLocaleString('en-IN')}</AppText>
       </Card>
 
+      <FormError message={formError} />
       <Button label="Create order" onPress={onSubmit} loading={submitting} />
     </Screen>
   );
@@ -287,7 +471,7 @@ const styles = StyleSheet.create({
   itemNumbersRow: {
     flexDirection: 'row',
     gap: Spacing.two,
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   removeButton: {
     width: 36,
@@ -296,6 +480,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.backgroundMuted,
+    marginTop: 6,
   },
   totalRow: {
     flexDirection: 'row',

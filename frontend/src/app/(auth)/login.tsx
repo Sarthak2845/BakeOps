@@ -1,31 +1,40 @@
 import { useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Link } from 'expo-router';
 
 import { Button } from '@/components/ui/button';
+import { FormError } from '@/components/ui/form-error';
 import { Screen } from '@/components/ui/screen';
 import { AppText } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
 import { Colors, Spacing } from '@/constants/theme';
-import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { getErrorMessage, getFieldErrors, type FieldErrors } from '@/lib/errors';
+import { hasErrors, validateEmail, validateRequired } from '@/lib/validators';
 
 export default function LoginScreen() {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  const canSubmit = email.trim() && password.length > 0;
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [formError, setFormError] = useState<string | null>(null);
 
   async function onSubmit() {
-    if (!canSubmit) return;
+    const next = {
+      email: validateEmail(email) ?? '',
+      password: validateRequired(password, 'Password') ?? '',
+    };
+    setErrors(next);
+    setFormError(null);
+    if (hasErrors(next)) return;
+
     setSubmitting(true);
     try {
       await login(email.trim(), password);
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Something went wrong. Please try again.';
-      Alert.alert('Could not log in', message);
+      setErrors(getFieldErrors(err));
+      setFormError(getErrorMessage(err, 'Could not log in. Please try again.'));
     } finally {
       setSubmitting(false);
     }
@@ -46,14 +55,30 @@ export default function LoginScreen() {
           label="Email"
           placeholder="you@example.com"
           value={email}
-          onChangeText={setEmail}
+          onChangeText={(t) => {
+            setEmail(t);
+            setErrors((e) => ({ ...e, email: '' }));
+          }}
           autoCapitalize="none"
           keyboardType="email-address"
+          error={errors.email}
         />
-        <TextField label="Password" placeholder="Your password" value={password} onChangeText={setPassword} secureTextEntry />
+        <TextField
+          label="Password"
+          placeholder="Your password"
+          value={password}
+          onChangeText={(t) => {
+            setPassword(t);
+            setErrors((e) => ({ ...e, password: '' }));
+          }}
+          secureTextEntry
+          error={errors.password}
+          onSubmitEditing={onSubmit}
+        />
       </View>
 
-      <Button label="Log in" onPress={onSubmit} disabled={!canSubmit} loading={submitting} />
+      <FormError message={formError} />
+      <Button label="Log in" onPress={onSubmit} loading={submitting} />
 
       <Link href="/(auth)/register" style={styles.link}>
         <AppText variant="body" color={Colors.textMuted}>

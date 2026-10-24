@@ -48,6 +48,8 @@ export function errorHandler(
       error: {
         message: "Validation failed",
         details: err.flatten(),
+        // Full paths (e.g. "items.0.unitPrice") so clients can point at the exact field.
+        issues: err.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
         requestId,
       },
     });

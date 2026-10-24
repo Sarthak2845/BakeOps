@@ -1,23 +1,25 @@
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorState } from '@/components/ui/error-state';
 import { Screen } from '@/components/ui/screen';
 import { AppText } from '@/components/ui/text';
+import { useToast } from '@/components/ui/toast';
 import { Colors, Radii, Spacing } from '@/constants/theme';
-import { ApiError } from '@/lib/api';
 import { getMoneyBreakdown } from '@/lib/business-logic';
 import { formatMoney } from '@/lib/format';
 import { openWhatsApp } from '@/lib/links';
 import { useAddPayment, useInvoices } from '@/lib/queries';
 
 export default function MoneyScreen() {
-  const { data: invoices = [], isLoading } = useInvoices();
+  const { data: invoices = [], isLoading, isError, error, refetch, isRefetching } = useInvoices();
   const addPayment = useAddPayment();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const toast = useToast();
 
   const today = useMemo(() => new Date(), []);
   const breakdown = useMemo(() => getMoneyBreakdown(invoices, today), [invoices, today]);
@@ -28,12 +30,23 @@ export default function MoneyScreen() {
     setBusyId(invoiceId);
     try {
       await addPayment.mutateAsync({ invoiceId, amount: balance, method: 'cash' });
+      toast.success('Payment recorded');
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Could not record the payment.';
-      Alert.alert('Payment failed', message);
+      toast.fromError(err, 'Couldn’t record the payment');
     } finally {
       setBusyId(null);
     }
+  }
+
+  if (isError && invoices.length === 0) {
+    return (
+      <Screen>
+        <View style={styles.header}>
+          <AppText variant="eyebrow">Money</AppText>
+        </View>
+        <ErrorState error={error} title="Couldn’t load your invoices" onRetry={() => refetch()} retrying={isRefetching} />
+      </Screen>
+    );
   }
 
   return (
@@ -95,7 +108,7 @@ export default function MoneyScreen() {
                     openWhatsApp(
                       invoice.order.customer.phone,
                       `Hi ${invoice.order.customer.name}, friendly reminder that ${formatMoney(balance)} is due for invoice ${invoice.invoiceNumber}. Thank you!`
-                    )
+                    ).catch((e) => toast.fromError(e))
                   }
                   style={styles.rowButton}
                 />

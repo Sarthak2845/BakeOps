@@ -1,6 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { authApi, setAuthToken } from './api';
+import { useToast } from '@/components/ui/toast';
+
+import { authApi, setAuthToken, setUnauthorizedHandler } from './api';
+import { queryClient } from './query-client';
 import { clearStoredSession, getStoredSession, setStoredSession } from './storage';
 import type { AuthUser, Business } from './types';
 
@@ -82,7 +85,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setBusinessState(null);
     setNeedsSetup(false);
+    queryClient.clear();
   }, []);
+
+  // A 401 on an authenticated request means the token expired or was revoked;
+  // sign out so the user lands on the login screen instead of a broken app.
+  const toast = useToast();
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      void logout();
+      toast.error('Please log in again to continue.', 'Session expired');
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [logout, toast]);
 
   const completeSetup = useCallback(() => setNeedsSetup(false), []);
 

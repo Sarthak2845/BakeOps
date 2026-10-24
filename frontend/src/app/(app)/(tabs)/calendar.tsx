@@ -5,9 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { FormError } from '@/components/ui/form-error';
 import { Screen } from '@/components/ui/screen';
 import { AppText } from '@/components/ui/text';
 import { Colors, Radii, Spacing } from '@/constants/theme';
+import { getErrorMessage } from '@/lib/errors';
 import { formatTime } from '@/lib/format';
 import { useCustomers, useOrders } from '@/lib/queries';
 
@@ -30,8 +32,11 @@ export default function CalendarScreen() {
   const [monthDate, setMonthDate] = useState(() => new Date());
   const [selected, setSelected] = useState(() => new Date());
 
-  const { data: orders = [] } = useOrders();
-  const { data: customers = [] } = useCustomers();
+  const ordersQuery = useOrders();
+  const customersQuery = useCustomers();
+  const orders = ordersQuery.data ?? [];
+  const customers = customersQuery.data ?? [];
+  const loadError = ordersQuery.error ?? customersQuery.error;
 
   const cells = useMemo(() => buildGrid(monthDate), [monthDate]);
 
@@ -125,6 +130,14 @@ export default function CalendarScreen() {
           </AppText>
         </View>
       </View>
+
+      <FormError
+        message={loadError ? `Couldn’t load your deliveries. ${getErrorMessage(loadError)}` : null}
+        onRetry={() => {
+          if (ordersQuery.isError) void ordersQuery.refetch();
+          if (customersQuery.isError) void customersQuery.refetch();
+        }}
+      />
 
       <Card style={styles.detailCard}>
         <View style={styles.detailHeader}>

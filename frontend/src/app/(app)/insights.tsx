@@ -4,17 +4,21 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Card } from '@/components/ui/card';
+import { FormError } from '@/components/ui/form-error';
 import { Screen } from '@/components/ui/screen';
 import { StatTile } from '@/components/ui/stat-tile';
 import { AppText } from '@/components/ui/text';
+import { useToast } from '@/components/ui/toast';
 import { Colors, Radii, Spacing } from '@/constants/theme';
 import { monthRange, ordersInRange, repeatRate, sumTotals, topFlavours } from '@/lib/business-logic';
+import { getErrorMessage } from '@/lib/errors';
 import { exportOrdersCsv } from '@/lib/export';
 import { formatMoney } from '@/lib/format';
 import { useOrders } from '@/lib/queries';
 
 export default function InsightsScreen() {
-  const { data: orders = [] } = useOrders();
+  const { data: orders = [], error: loadError, refetch } = useOrders();
+  const toast = useToast();
   const [exporting, setExporting] = useState(false);
   const today = useMemo(() => new Date(), []);
 
@@ -63,6 +67,8 @@ export default function InsightsScreen() {
     try {
       const label = today.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }).replace(' ', '-');
       await exportOrdersCsv(stats.monthOrders, `bakeops-orders-${label}.csv`);
+    } catch (err) {
+      toast.fromError(err, 'Couldn’t export orders');
     } finally {
       setExporting(false);
     }
@@ -79,6 +85,11 @@ export default function InsightsScreen() {
           <AppText variant="h1">Your month</AppText>
         </View>
       </View>
+
+      <FormError
+        message={loadError ? `Couldn’t load this month’s orders. ${getErrorMessage(loadError)}` : null}
+        onRetry={() => void refetch()}
+      />
 
       <View style={styles.revenueRow}>
         <View>
