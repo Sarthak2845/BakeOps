@@ -102,7 +102,7 @@ export const businessApi = {
   getMe() {
     return apiFetch<{ business: Business }>('/api/business/me');
   },
-  updateMe(input: Partial<Business>) {
+  updateMe(input: Partial<Omit<Business, 'logoUrl'>> & { logoUrl?: string | null }) {
     return apiFetch<{ business: Business }>('/api/business/me', {
       method: 'PATCH',
       body: JSON.stringify(input),

@@ -9,6 +9,8 @@ export interface InvoicePdfData {
     phone?: string | null;
     email?: string | null;
     gstin?: string | null;
+    /** PNG/JPEG bytes, already downloaded (see invoice.logo.ts). */
+    logo?: Buffer | null;
   };
   customer: {
     name: string;
@@ -34,13 +36,28 @@ export function renderInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
 
     const money = (n: number) => `${data.currency} ${n.toFixed(2)}`;
 
-    doc.fontSize(20).text(data.business.name, { continued: false });
+    // Logo sits top-right; header text is narrowed so it never runs underneath.
+    const LOGO_SIZE = 64;
+    let headerWidth = 495;
+    let logoBottom = 0;
+    if (data.business.logo) {
+      try {
+        doc.image(data.business.logo, 545 - LOGO_SIZE, 45, { fit: [LOGO_SIZE, LOGO_SIZE], align: "right" });
+        headerWidth = 495 - LOGO_SIZE - 16;
+        logoBottom = 45 + LOGO_SIZE;
+      } catch {
+        // Corrupt/unsupported image data: render without the logo.
+      }
+    }
+
+    doc.fontSize(20).text(data.business.name, 50, 50, { width: headerWidth });
     doc.fontSize(10).fillColor("#555");
-    if (data.business.address) doc.text(data.business.address);
+    if (data.business.address) doc.text(data.business.address, { width: headerWidth });
     const contactLine = [data.business.phone, data.business.email].filter(Boolean).join("  |  ");
-    if (contactLine) doc.text(contactLine);
-    if (data.business.gstin) doc.text(`GSTIN: ${data.business.gstin}`);
+    if (contactLine) doc.text(contactLine, { width: headerWidth });
+    if (data.business.gstin) doc.text(`GSTIN: ${data.business.gstin}`, { width: headerWidth });
     doc.fillColor("#000");
+    if (doc.y < logoBottom) doc.y = logoBottom;
 
     doc.moveDown(1.5);
     doc.fontSize(14).text(`Invoice ${data.invoiceNumber}`);
