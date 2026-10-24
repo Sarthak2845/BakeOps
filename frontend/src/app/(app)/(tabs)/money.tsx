@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 
@@ -19,6 +19,13 @@ export default function MoneyScreen() {
   const { data: invoices = [], isLoading, isError, error, refetch, isRefetching } = useInvoices();
   const addPayment = useAddPayment();
   const [busyId, setBusyId] = useState<string | null>(null);
+  // "Mark paid" needs a second tap so a stray tap can't record a payment.
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!confirmId) return;
+    const t = setTimeout(() => setConfirmId(null), 4000);
+    return () => clearTimeout(t);
+  }, [confirmId]);
   const toast = useToast();
 
   const today = useMemo(() => new Date(), []);
@@ -27,10 +34,15 @@ export default function MoneyScreen() {
   const barTotal = breakdown.totalDue || 1;
 
   async function markPaid(invoiceId: string, balance: number) {
+    if (confirmId !== invoiceId) {
+      setConfirmId(invoiceId);
+      return;
+    }
+    setConfirmId(null);
     setBusyId(invoiceId);
     try {
       await addPayment.mutateAsync({ invoiceId, amount: balance, method: 'cash' });
-      toast.success('Payment recorded');
+      toast.success(`${formatMoney(balance)} recorded as paid`);
     } catch (err) {
       toast.fromError(err, 'Couldn’t record the payment');
     } finally {
@@ -92,36 +104,38 @@ export default function MoneyScreen() {
         <View style={{ gap: Spacing.two }}>
           {breakdown.rows.map(({ invoice, balance, overdueDays }) => (
             <Card key={invoice.id} style={styles.row}>
-              <Pressable style={styles.rowInfo} onPress={() => router.push(`/receipt/${invoice.id}`)}>
-                <AppText variant="bodyBold">{invoice.order.customer.name}</AppText>
-                <AppText variant="small" color={overdueDays ? Colors.brand : Colors.textMuted}>
-                  {overdueDays ? `Overdue ${overdueDays} day${overdueDays === 1 ? '' : 's'}` : 'Due soon'} · {invoice.invoiceNumber}
-                </AppText>
+              <Pressable style={styles.rowTop} onPress={() => router.push(`/receipt/${invoice.id}`)}>
+                <View style={styles.rowInfo}>
+                  <AppText variant="bodyBold">{invoice.order.customer.name}</AppText>
+                  <AppText variant="small" color={overdueDays ? Colors.brand : Colors.textMuted}>
+                    {overdueDays ? `Overdue ${overdueDays} day${overdueDays === 1 ? '' : 's'}` : 'Due soon'} · {invoice.invoiceNumber}
+                  </AppText>
+                </View>
+                <AppText variant="bodyBold">{formatMoney(balance)}</AppText>
               </Pressable>
-              <AppText variant="bodyBold">{formatMoney(balance)}</AppText>
-              {overdueDays ? (
-                <Button
-                  label="Remind"
-                  variant="outline"
-                  fullWidth={false}
-                  onPress={() =>
-                    openWhatsApp(
-                      invoice.order.customer.phone,
-                      `Hi ${invoice.order.customer.name}, friendly reminder that ${formatMoney(balance)} is due for invoice ${invoice.invoiceNumber}. Thank you!`
-                    ).catch((e) => toast.fromError(e))
-                  }
-                  style={styles.rowButton}
-                />
-              ) : (
-                <Button
-                  label="Mark paid"
-                  variant="outline"
-                  fullWidth={false}
-                  loading={busyId === invoice.id}
-                  onPress={() => markPaid(invoice.id, balance)}
-                  style={styles.rowButton}
-                />
-              )}
+              <View style={styles.rowActions}>
+                <View style={styles.rowAction}>
+                  <Button
+                    label="Remind"
+                    variant="outline"
+                    onPress={() =>
+                      openWhatsApp(
+                        invoice.order.customer.phone,
+                        `Hi ${invoice.order.customer.name}, friendly reminder that ${formatMoney(balance)} is due for invoice ${invoice.invoiceNumber}. Thank you!`
+                      ).catch((e) => toast.fromError(e))
+                    }
+                  />
+                </View>
+                <View style={styles.rowAction}>
+                  <Button
+                    label={confirmId === invoice.id ? `Confirm ${formatMoney(balance)}` : 'Mark paid'}
+                    variant={confirmId === invoice.id ? 'success' : 'outline'}
+                    loading={busyId === invoice.id}
+                    disabled={busyId !== null && busyId !== invoice.id}
+                    onPress={() => markPaid(invoice.id, balance)}
+                  />
+                </View>
+              </View>
             </Card>
           ))}
         </View>
@@ -183,6 +197,9 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   row: {
+    gap: Spacing.two + 4,
+  },
+  rowTop: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
@@ -191,9 +208,12 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  rowButton: {
-    paddingHorizontal: Spacing.three,
-    minWidth: 96,
+  rowActions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  rowAction: {
+    flex: 1,
   },
   receivedRow: {
     flexDirection: 'row',

@@ -28,13 +28,13 @@ TabButton.displayName = 'TabButton';
 export default function TabsLayout() {
   return (
     <Tabs>
-      <TabSlot />
+      <TabSlot style={styles.slot} />
 
       <TabList style={styles.hidden}>
         <TabTrigger name="index" href="/" />
         <TabTrigger name="orders" href="/orders" />
-        <TabTrigger name="calendar" href="/calendar" />
         <TabTrigger name="money" href="/money" />
+        <TabTrigger name="profile" href="/profile" />
       </TabList>
 
       <View style={styles.bar}>
@@ -53,11 +53,11 @@ export default function TabsLayout() {
           </Pressable>
         </Link>
 
-        <TabTrigger name="calendar" href="/calendar" resetOnFocus asChild>
-          <TabButton icon="calendar-outline" label="Calendar" />
-        </TabTrigger>
         <TabTrigger name="money" href="/money" resetOnFocus asChild>
           <TabButton icon="wallet-outline" label="Money" />
+        </TabTrigger>
+        <TabTrigger name="profile" href="/profile" resetOnFocus asChild>
+          <TabButton icon="person-circle-outline" label="Profile" />
         </TabTrigger>
       </View>
     </Tabs>
@@ -65,6 +65,14 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
+  // TabSlot defaults to flexShrink: 0, so a tall screen (e.g. Profile) grows past
+  // the viewport and pushes the tab bar off-screen. Let it shrink and scroll instead.
+  slot: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    minHeight: 0,
+  },
   hidden: {
     display: 'none',
   },

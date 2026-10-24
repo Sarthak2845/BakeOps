@@ -1,5 +1,6 @@
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Button } from '@/components/ui/button';
@@ -68,11 +69,15 @@ export default function ReceiptScreen() {
 
       <Card style={styles.receiptCard}>
         <View style={styles.businessRow}>
-          <View style={styles.avatar}>
-            <AppText variant="h2" color={Colors.brand}>
-              {business?.name?.[0]?.toUpperCase() ?? '?'}
-            </AppText>
-          </View>
+          {business?.logoUrl ? (
+            <Image source={{ uri: business.logoUrl }} style={styles.avatar} contentFit="cover" accessibilityLabel={`${business.name} logo`} />
+          ) : (
+            <View style={styles.avatar}>
+              <AppText variant="h2" color={Colors.brand}>
+                {business?.name?.[0]?.toUpperCase() ?? '?'}
+              </AppText>
+            </View>
+          )}
           <View style={{ flex: 1 }}>
             <AppText variant="bodyBold">{business?.name}</AppText>
             <AppText variant="small" color={Colors.textMuted}>

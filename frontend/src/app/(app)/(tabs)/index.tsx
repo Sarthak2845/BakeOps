@@ -68,11 +68,13 @@ export default function HomeScreen() {
 
   return (
     <Screen>
-      <View style={styles.headerBlock}>
-        <AppText variant="eyebrow">
-          {today.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'long' }).toUpperCase()}
-        </AppText>
-        <AppText variant="h1">Namaste, {user?.name?.split(' ')[0] ?? 'there'}</AppText>
+      <View style={styles.headerTopRow}>
+        <View style={styles.headerBlock}>
+          <AppText variant="eyebrow">
+            {today.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'long' }).toUpperCase()}
+          </AppText>
+          <AppText variant="h1">Namaste, {user?.name?.split(' ')[0] ?? 'there'}</AppText>
+        </View>
       </View>
 
       <FormError
@@ -205,9 +207,16 @@ function statusLabel(status: OrderStatus): string {
 }
 
 const styles = StyleSheet.create({
-  headerBlock: {
-    gap: 4,
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
     marginTop: Spacing.two,
+  },
+  headerBlock: {
+    flex: 1,
+    gap: 4,
   },
   callCard: {
     gap: Spacing.two,

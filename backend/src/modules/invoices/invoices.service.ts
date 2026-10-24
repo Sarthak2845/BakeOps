@@ -4,6 +4,7 @@ import { prisma } from "../../prisma";
 import { ApiError } from "../../utils/apiError";
 import { moduleLogger } from "../../utils/logger";
 import { nextInvoiceNumber } from "./invoiceNumber";
+import { fetchLogoForPdf } from "./invoice.logo";
 import { renderInvoicePdf } from "./invoice.pdf";
 import type { CreatePaymentInput, ListInvoicesQuery } from "./invoices.schema";
 
@@ -67,7 +68,7 @@ export async function generateInvoice(businessId: string, orderId: string) {
     const pdfBuffer = await renderInvoicePdf({
       invoiceNumber: invoice.invoiceNumber,
       issuedDate: invoice.issuedDate,
-      business: order.business,
+      business: { ...order.business, logo: await fetchLogoForPdf(order.business.logoUrl) },
       customer: order.customer,
       items: order.items.map((i) => ({
         description: i.description,
