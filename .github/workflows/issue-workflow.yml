@@ -1,0 +1,45 @@
+name: Issue workflow
+
+# Drives issues through Open → In Progress → RFT → In Testing → UAT Tested → Closed.
+# See .github/ISSUE_WORKFLOW.md for the commands and one-time setup.
+
+on:
+  issues:
+    types: [opened, assigned, labeled, unlabeled, closed, reopened]
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [opened, reopened, ready_for_review, closed]
+
+permissions:
+  issues: write
+  pull-requests: read
+  contents: read
+
+# One run at a time per issue/PR so status changes never race each other.
+concurrency:
+  group: issue-workflow-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  transition:
+    # Skip comments on PRs and anything the workflow itself did.
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      !(github.event_name == 'issue_comment' && github.event.issue.pull_request)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+
+      - uses: actions/github-script@v7
+        env:
+          QA_USERS: ${{ vars.QA_USERS }}
+          UAT_USERS: ${{ vars.UAT_USERS }}
+          PROJECT_URL: ${{ vars.PROJECT_URL }}
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+        with:
+          script: |
+            const wf = require('./.github/scripts/issue-workflow.js');
+            await wf.run({ github, context, core });
