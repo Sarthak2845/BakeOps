@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorState } from '@/components/ui/error-state';
 import { Pill, type PillTone } from '@/components/ui/pill';
 import { Screen } from '@/components/ui/screen';
 import { AppText } from '@/components/ui/text';
@@ -34,7 +35,7 @@ function statusLabel(status: OrderStatus): string {
 }
 
 export default function OrdersListScreen() {
-  const { data: orders = [], isLoading } = useOrders();
+  const { data: orders = [], isLoading, isError, error, refetch, isRefetching } = useOrders();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<OrderStatus | 'ALL'>('ALL');
 
@@ -85,7 +86,9 @@ export default function OrdersListScreen() {
         })}
       </View>
 
-      {!isLoading && filtered.length === 0 ? (
+      {isError && orders.length === 0 ? (
+        <ErrorState error={error} title="Couldn’t load your orders" onRetry={() => refetch()} retrying={isRefetching} />
+      ) : !isLoading && filtered.length === 0 ? (
         <EmptyState title="No orders yet" hint="Tap the + button to create your first order." />
       ) : (
         <View style={{ gap: Spacing.two }}>

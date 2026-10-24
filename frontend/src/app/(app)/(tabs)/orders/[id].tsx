@@ -1,14 +1,15 @@
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ErrorState } from '@/components/ui/error-state';
 import { Screen } from '@/components/ui/screen';
 import { AppText } from '@/components/ui/text';
+import { useToast } from '@/components/ui/toast';
 import { Colors, Spacing } from '@/constants/theme';
-import { ApiError } from '@/lib/api';
 import { formatDate, formatMoney } from '@/lib/format';
 import { openUrl, openWhatsApp } from '@/lib/links';
 import { useGenerateInvoice, useOrder, useUpdateOrderStatus } from '@/lib/queries';
@@ -26,10 +27,25 @@ const PIPELINE_LABEL: Record<OrderStatus, string> = {
 
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: order, isLoading } = useOrder(id);
+  const { data: order, isLoading, isError, error, refetch, isRefetching } = useOrder(id);
   const updateStatus = useUpdateOrderStatus();
   const generateInvoice = useGenerateInvoice();
   const [busy, setBusy] = useState(false);
+  const toast = useToast();
+
+  if (isError && !order) {
+    return (
+      <Screen>
+        <View style={styles.headerRow}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={20} color={Colors.text} />
+          </Pressable>
+          <AppText variant="h2">Order</AppText>
+        </View>
+        <ErrorState error={error} title="Couldn’t load this order" onRetry={() => refetch()} retrying={isRefetching} />
+      </Screen>
+    );
+  }
 
   if (isLoading || !order) {
     return (
@@ -48,8 +64,7 @@ export default function OrderDetailScreen() {
     try {
       await updateStatus.mutateAsync({ id: order!.id, status });
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Could not update the order.';
-      Alert.alert('Update failed', message);
+      toast.fromError(err, status === 'CANCELLED' ? 'Couldn’t cancel the order' : 'Couldn’t update the order');
     } finally {
       setBusy(false);
     }
@@ -61,8 +76,7 @@ export default function OrderDetailScreen() {
       const { invoice } = await generateInvoice.mutateAsync(order!.id);
       router.push(`/receipt/${invoice.id}`);
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Could not generate the invoice.';
-      Alert.alert('Invoice failed', message);
+      toast.fromError(err, 'Couldn’t generate the invoice');
     } finally {
       setBusy(false);
     }
@@ -90,10 +104,10 @@ export default function OrderDetailScreen() {
           ) : null}
         </View>
         <View style={styles.contactActions}>
-          <Pressable style={styles.iconButton} onPress={() => openWhatsApp(order.customer.phone, `Hi ${order.customer.name}!`)}>
+          <Pressable style={styles.iconButton} onPress={() => openWhatsApp(order.customer.phone, `Hi ${order.customer.name}!`).catch((e) => toast.fromError(e))}>
             <Ionicons name="logo-whatsapp" size={18} color={Colors.success} />
           </Pressable>
-          <Pressable style={styles.iconButton} onPress={() => openUrl(`tel:${order.customer.phone}`)}>
+          <Pressable style={styles.iconButton} onPress={() => openUrl(`tel:${order.customer.phone}`).catch((e) => toast.fromError(e))}>
             <Ionicons name="call" size={18} color={Colors.brand} />
           </Pressable>
         </View>
