@@ -1,0 +1,76 @@
+name: Deploy to production
+
+# Final step of the issue workflow: deploy, verify, then close every issue that
+# is UAT Tested. Give the `production` environment required reviewers
+# (Settings → Environments) so each deploy needs manual approval.
+
+on:
+  workflow_dispatch:
+    inputs:
+      issues:
+        description: "Issues shipped in this deploy, e.g. 12, 15 (leave empty for all UAT Tested issues)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.DEPLOY_HOOK_URL }}
+        run: |
+          # Replace with the real deploy for your host. A deploy hook URL
+          # (Render / Railway / Vercel style) works out of the box.
+          if [ -z "$DEPLOY_HOOK_URL" ]; then
+            echo "::error::No deploy configured. Set the DEPLOY_HOOK_URL secret or replace this step."
+            exit 1
+          fi
+          curl --fail --silent --show-error -X POST "$DEPLOY_HOOK_URL"
+
+      - name: Verify deployment
+        env:
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+        run: |
+          if [ -z "$PRODUCTION_URL" ]; then
+            echo "::error::Set the PRODUCTION_URL repository variable so the deploy can be verified."
+            exit 1
+          fi
+          # Give the new release time to come up, then require a healthy /health.
+          for i in $(seq 1 30); do
+            if curl --fail --silent "$PRODUCTION_URL/health" | grep -q '"ok"'; then
+              echo "Production is healthy."
+              exit 0
+            fi
+            echo "Waiting for $PRODUCTION_URL/health ($i/30)..."
+            sleep 10
+          done
+          echo "::error::Production health check failed — issues were not closed."
+          exit 1
+
+      - uses: actions/github-script@v7
+        env:
+          ISSUES: ${{ inputs.issues }}
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+          PROJECT_URL: ${{ vars.PROJECT_URL }}
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+        with:
+          script: |
+            const wf = require('./.github/scripts/issue-workflow.js');
+            await wf.closeDeployed({ github, context, core }, {
+              issues: process.env.ISSUES,
+              environmentUrl: process.env.PRODUCTION_URL,
+            });

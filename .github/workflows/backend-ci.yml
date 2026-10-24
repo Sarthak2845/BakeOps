@@ -67,3 +67,7 @@ jobs:
 
       - name: Build
         run: npm run build
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-coverage-report
