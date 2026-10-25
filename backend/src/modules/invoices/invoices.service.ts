@@ -1,21 +1,18 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import { prisma } from "../../prisma";
 import { ApiError } from "../../utils/apiError";
 import { moduleLogger } from "../../utils/logger";
 import { nextInvoiceNumber } from "./invoiceNumber";
+import { fetchLogoForPdf } from "./invoice.logo";
 import { renderInvoicePdf } from "./invoice.pdf";
 import type { CreatePaymentInput, ListInvoicesQuery } from "./invoices.schema";
 
 const log = moduleLogger("invoices");
 
-const STORAGE_DIR = path.join(__dirname, "..", "..", "..", "storage", "invoices");
-
-async function writeInvoicePdf(invoiceNumber: string, buffer: Buffer): Promise<string> {
-  await fs.mkdir(STORAGE_DIR, { recursive: true });
-  const filename = `${invoiceNumber.replace(/[^a-zA-Z0-9-]/g, "_")}.pdf`;
-  await fs.writeFile(path.join(STORAGE_DIR, filename), buffer);
-  return `/files/invoices/${filename}`;
+// PDFs are rendered on request rather than saved to disk: hosts like Render
+// wipe the local filesystem on every deploy/restart, and rendering live means
+// the PDF always shows the current payment status.
+export function invoicePdfPath(slug: string, invoiceNumber: string): string {
+  return `/r/${encodeURIComponent(slug)}/${encodeURIComponent(invoiceNumber)}/pdf`;
 }
 
 export async function generateInvoice(businessId: string, orderId: string) {
@@ -49,7 +46,9 @@ export async function generateInvoice(businessId: string, orderId: string) {
         businessId,
         orderId,
         invoiceNumber,
+        pdfUrl: invoicePdfPath(order.business.slug, invoiceNumber),
       },
+      include: { order: { include: { items: true, customer: true } } },
     });
   });
 
@@ -58,56 +57,7 @@ export async function generateInvoice(businessId: string, orderId: string) {
     "invoice record created"
   );
 
-  // The invoice row is already committed at this point. If the PDF step
-  // fails, the invoice exists without a pdfUrl, so log enough to find and
-  // repair it.
-  let pdfUrl: string;
-  const pdfStartedAt = performance.now();
-  try {
-    const pdfBuffer = await renderInvoicePdf({
-      invoiceNumber: invoice.invoiceNumber,
-      issuedDate: invoice.issuedDate,
-      business: order.business,
-      customer: order.customer,
-      items: order.items.map((i) => ({
-        description: i.description,
-        quantity: Number(i.quantity),
-        unitPrice: Number(i.unitPrice),
-        lineTotal: Number(i.lineTotal),
-      })),
-      totalAmount: Number(order.totalAmount),
-      advancePaid: Number(order.advancePaid),
-      balanceDue: Number(order.balanceDue),
-      paymentStatus: invoice.paymentStatus,
-      currency: order.business.currency,
-    });
-
-    pdfUrl = await writeInvoicePdf(invoice.invoiceNumber, pdfBuffer);
-    log.info(
-      {
-        event: "invoice.pdf_generated",
-        invoiceId: invoice.id,
-        invoiceNumber: invoice.invoiceNumber,
-        orderId,
-        pdfUrl,
-        sizeBytes: pdfBuffer.length,
-        durationMs: Math.round(performance.now() - pdfStartedAt),
-      },
-      "invoice PDF generated"
-    );
-  } catch (err) {
-    log.error(
-      { event: "invoice.pdf_failed", err, invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber, orderId },
-      "invoice PDF generation failed; invoice exists without a PDF"
-    );
-    throw err;
-  }
-
-  return prisma.invoice.update({
-    where: { id: invoice.id },
-    data: { pdfUrl },
-    include: { order: { include: { items: true, customer: true } } },
-  });
+  return invoice;
 }
 
 export async function listInvoices(businessId: string, query: ListInvoicesQuery) {
@@ -220,4 +170,41 @@ export async function addPayment(businessId: string, invoiceId: string, input: C
   }
 
   return updated.result;
+}
+
+/** Renders a receipt's PDF on demand for the public /r/:slug/:invoiceNumber/pdf link. */
+export async function renderPublicInvoicePdf(slug: string, invoiceNumber: string) {
+  const { business, invoice } = await getPublicInvoice(slug, invoiceNumber);
+  const { order } = invoice;
+  const startedAt = performance.now();
+
+  const pdf = await renderInvoicePdf({
+    invoiceNumber: invoice.invoiceNumber,
+    issuedDate: invoice.issuedDate,
+    business: { ...business, logo: await fetchLogoForPdf(business.logoUrl) },
+    customer: order.customer,
+    items: order.items.map((i) => ({
+      description: i.description,
+      quantity: Number(i.quantity),
+      unitPrice: Number(i.unitPrice),
+      lineTotal: Number(i.lineTotal),
+    })),
+    totalAmount: Number(order.totalAmount),
+    advancePaid: Number(order.advancePaid),
+    balanceDue: Number(order.balanceDue),
+    paymentStatus: invoice.paymentStatus,
+    currency: business.currency,
+  });
+
+  log.info(
+    {
+      event: "invoice.pdf_rendered",
+      invoiceId: invoice.id,
+      invoiceNumber,
+      sizeBytes: pdf.length,
+      durationMs: Math.round(performance.now() - startedAt),
+    },
+    "invoice PDF rendered"
+  );
+  return { pdf, filename: `${invoice.invoiceNumber.replace(/[^a-zA-Z0-9-]/g, "_")}.pdf` };
 }

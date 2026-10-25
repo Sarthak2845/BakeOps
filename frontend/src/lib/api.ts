@@ -12,21 +12,35 @@ import type {
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000';
 
+export interface ApiIssue {
+  path: string;
+  message: string;
+}
+
 export class ApiError extends Error {
+  /** HTTP status, or 0 when the server could not be reached. */
   status: number;
   details?: unknown;
+  issues?: ApiIssue[];
 
-  constructor(status: number, message: string, details?: unknown) {
+  constructor(status: number, message: string, details?: unknown, issues?: ApiIssue[]) {
     super(message);
     this.status = status;
     this.details = details;
+    this.issues = issues;
   }
 }
 
 let authToken: string | null = null;
+let onUnauthorized: (() => void) | null = null;
 
 export function setAuthToken(token: string | null) {
   authToken = token;
+}
+
+/** Called when an authenticated request comes back 401 (expired or revoked token). */
+export function setUnauthorizedHandler(handler: (() => void) | null) {
+  onUnauthorized = handler;
 }
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -36,7 +50,12 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   };
   if (authToken) headers.Authorization = `Bearer ${authToken}`;
 
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  } catch {
+    throw new ApiError(0, "Can't reach the server. Check your internet connection and try again.");
+  }
 
   if (res.status === 204) return undefined as T;
 
@@ -44,7 +63,8 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 
   if (!res.ok) {
     const message = body?.error?.message ?? `Request failed (${res.status})`;
-    throw new ApiError(res.status, message, body?.error?.details);
+    if (res.status === 401 && headers.Authorization) onUnauthorized?.();
+    throw new ApiError(res.status, message, body?.error?.details, body?.error?.issues);
   }
 
   return body as T;
@@ -82,7 +102,7 @@ export const businessApi = {
   getMe() {
     return apiFetch<{ business: Business }>('/api/business/me');
   },
-  updateMe(input: Partial<Business>) {
+  updateMe(input: Partial<Omit<Business, 'logoUrl'>> & { logoUrl?: string | null }) {
     return apiFetch<{ business: Business }>('/api/business/me', {
       method: 'PATCH',
       body: JSON.stringify(input),

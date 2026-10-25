@@ -6,6 +6,8 @@ import { AppText } from './text';
 
 export type TextFieldProps = TextInputProps & {
   label?: string;
+  /** Shown under the input in red; also outlines the input. */
+  error?: string | null;
 };
 
 // react-native-web renders TextInput as a plain <input>, which the browser's
@@ -13,14 +15,15 @@ export type TextFieldProps = TextInputProps & {
 // being included in it, overflowing the parent. Force border-box on web only.
 const webBoxSizingFix = Platform.OS === 'web' ? ({ boxSizing: 'border-box', width: '100%' } as object) : null;
 
-export function TextField({ label, style, onFocus, onBlur, ...rest }: TextFieldProps) {
+export function TextField({ label, error, style, onFocus, onBlur, ...rest }: TextFieldProps) {
   const [focused, setFocused] = useState(false);
 
   return (
     <View style={styles.container}>
       {label ? <AppText variant="bodyMedium">{label}</AppText> : null}
       <TextInput
-        style={[styles.input, webBoxSizingFix, focused && styles.inputFocused, style]}
+        style={[styles.input, webBoxSizingFix, focused && styles.inputFocused, error ? styles.inputError : null, style]}
+        aria-invalid={error ? true : undefined}
         placeholderTextColor={Colors.textMuted}
         onFocus={(e) => {
           setFocused(true);
@@ -32,6 +35,11 @@ export function TextField({ label, style, onFocus, onBlur, ...rest }: TextFieldP
         }}
         {...rest}
       />
+      {error ? (
+        <AppText variant="small" color={Colors.dangerSoftText} style={styles.error}>
+          {error}
+        </AppText>
+      ) : null}
     </View>
   );
 }
@@ -53,5 +61,11 @@ const styles = StyleSheet.create({
   },
   inputFocused: {
     borderColor: Colors.accent,
+  },
+  inputError: {
+    borderColor: Colors.danger,
+  },
+  error: {
+    paddingHorizontal: Spacing.three,
   },
 });

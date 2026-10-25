@@ -1,0 +1,43 @@
+name: Feature request
+description: New functionality or an improvement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / goal
+      description: Who needs this and why?
+    validations:
+      required: true
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Requirements
+      description: What should be built?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How we know it is done. Make each one checkable.
+      placeholder: |
+        - [ ] …
+        - [ ] …
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Backend (API)
+        - Frontend (app)
+        - Both
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Designs / notes

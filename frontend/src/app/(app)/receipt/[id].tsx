@@ -1,12 +1,15 @@
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ErrorState } from '@/components/ui/error-state';
 import { Pill } from '@/components/ui/pill';
 import { Screen } from '@/components/ui/screen';
 import { AppText } from '@/components/ui/text';
+import { useToast } from '@/components/ui/toast';
 import { Colors, Radii, Spacing } from '@/constants/theme';
 import { API_URL, invoicesApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
@@ -24,7 +27,22 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
 export default function ReceiptScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { business } = useAuth();
-  const { data: invoice, isLoading } = useInvoice(id);
+  const { data: invoice, isLoading, isError, error, refetch, isRefetching } = useInvoice(id);
+  const toast = useToast();
+
+  if (isError && !invoice) {
+    return (
+      <Screen>
+        <View style={styles.headerRow}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={20} color={Colors.text} />
+          </Pressable>
+          <AppText variant="h2">Receipt</AppText>
+        </View>
+        <ErrorState error={error} title="Couldn’t load this receipt" onRetry={() => refetch()} retrying={isRefetching} />
+      </Screen>
+    );
+  }
 
   if (isLoading || !invoice) {
     return (
@@ -51,11 +69,15 @@ export default function ReceiptScreen() {
 
       <Card style={styles.receiptCard}>
         <View style={styles.businessRow}>
-          <View style={styles.avatar}>
-            <AppText variant="h2" color={Colors.brand}>
-              {business?.name?.[0]?.toUpperCase() ?? '?'}
-            </AppText>
-          </View>
+          {business?.logoUrl ? (
+            <Image source={{ uri: business.logoUrl }} style={styles.avatar} contentFit="cover" accessibilityLabel={`${business.name} logo`} />
+          ) : (
+            <View style={styles.avatar}>
+              <AppText variant="h2" color={Colors.brand}>
+                {business?.name?.[0]?.toUpperCase() ?? '?'}
+              </AppText>
+            </View>
+          )}
           <View style={{ flex: 1 }}>
             <AppText variant="bodyBold">{business?.name}</AppText>
             <AppText variant="small" color={Colors.textMuted}>
@@ -132,7 +154,7 @@ export default function ReceiptScreen() {
             openWhatsApp(
               order.customer.phone,
               `Hi ${order.customer.name}, here's your receipt from ${business?.name ?? 'us'}: ${publicUrl ?? invoice.invoiceNumber}. Balance due: ${formatMoney(order.balanceDue)}.`
-            )
+            ).catch((e) => toast.fromError(e))
           }
         />
         <View style={styles.buttonRow}>
@@ -141,11 +163,26 @@ export default function ReceiptScreen() {
               label="Download PDF"
               variant="outline"
               disabled={!invoice.pdfUrl}
-              onPress={() => invoice.pdfUrl && openUrl(invoice.pdfUrl.startsWith('http') ? invoice.pdfUrl : `${API_URL}${invoice.pdfUrl}`)}
+              onPress={() =>
+                invoice.pdfUrl &&
+                openUrl(invoice.pdfUrl.startsWith('http') ? invoice.pdfUrl : `${API_URL}${invoice.pdfUrl}`).catch((e) =>
+                  toast.fromError(e, 'Couldn’t open the PDF')
+                )
+              }
             />
           </View>
           <View style={styles.buttonFlex}>
-            <Button label="Copy link" variant="outline" onPress={() => publicUrl && copyToClipboard(publicUrl)} />
+            <Button
+              label="Copy link"
+              variant="outline"
+              disabled={!publicUrl}
+              onPress={() =>
+                publicUrl &&
+                copyToClipboard(publicUrl)
+                  .then(() => toast.success('Receipt link copied'))
+                  .catch((e) => toast.fromError(e))
+              }
+            />
           </View>
         </View>
       </View>

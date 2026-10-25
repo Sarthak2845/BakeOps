@@ -8,6 +8,7 @@ import {
   getInvoiceHandler,
   listInvoicesHandler,
   publicReceiptHandler,
+  publicReceiptPdfHandler,
 } from "./invoices.controller";
 
 export const invoicesRouter = Router();
@@ -23,3 +24,4 @@ invoicesRouter.post(
 
 export const publicReceiptRouter = Router();
 publicReceiptRouter.get("/:slug/:invoiceNumber", asyncHandler(publicReceiptHandler));
+publicReceiptRouter.get("/:slug/:invoiceNumber/pdf", asyncHandler(publicReceiptPdfHandler));

@@ -1,8 +1,10 @@
 name: Backend CI
 
 on:
+  # prod is tested by deploy-prod.yml, which calls this workflow before deploying.
+  workflow_call:
   push:
-    branches: [main, master]
+    branches: [main]
     paths:
       - "backend/**"
       - ".github/workflows/backend-ci.yml"

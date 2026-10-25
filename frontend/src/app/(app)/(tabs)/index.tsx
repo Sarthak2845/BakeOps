@@ -5,12 +5,15 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { FormError } from '@/components/ui/form-error';
 import { Pill, type PillTone } from '@/components/ui/pill';
 import { Screen } from '@/components/ui/screen';
 import { StatTile } from '@/components/ui/stat-tile';
 import { AppText } from '@/components/ui/text';
+import { useToast } from '@/components/ui/toast';
 import { Colors, Radii, Spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { getErrorMessage } from '@/lib/errors';
 import {
   getUpcomingOccasions,
   isActiveOrder,
@@ -36,8 +39,12 @@ const STATUS_TONE: Record<OrderStatus, PillTone> = {
 
 export default function HomeScreen() {
   const { user, business } = useAuth();
-  const { data: customers = [] } = useCustomers();
-  const { data: orders = [] } = useOrders();
+  const customersQuery = useCustomers();
+  const ordersQuery = useOrders();
+  const customers = customersQuery.data ?? [];
+  const orders = ordersQuery.data ?? [];
+  const loadError = ordersQuery.error ?? customersQuery.error;
+  const toast = useToast();
 
   const today = useMemo(() => new Date(), []);
   const upcoming = useMemo(() => getUpcomingOccasions(customers, orders, today), [customers, orders, today]);
@@ -61,12 +68,22 @@ export default function HomeScreen() {
 
   return (
     <Screen>
-      <View style={styles.headerBlock}>
-        <AppText variant="eyebrow">
-          {today.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'long' }).toUpperCase()}
-        </AppText>
-        <AppText variant="h1">Namaste, {user?.name?.split(' ')[0] ?? 'there'}</AppText>
+      <View style={styles.headerTopRow}>
+        <View style={styles.headerBlock}>
+          <AppText variant="eyebrow">
+            {today.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'long' }).toUpperCase()}
+          </AppText>
+          <AppText variant="h1">Namaste, {user?.name?.split(' ')[0] ?? 'there'}</AppText>
+        </View>
       </View>
+
+      <FormError
+        message={loadError ? `Couldn’t load today’s data. ${getErrorMessage(loadError)}` : null}
+        onRetry={() => {
+          if (ordersQuery.isError) void ordersQuery.refetch();
+          if (customersQuery.isError) void customersQuery.refetch();
+        }}
+      />
 
       <Card tone="brand" style={styles.callCard}>
         <View style={styles.callHeaderRow}>
@@ -107,12 +124,12 @@ export default function HomeScreen() {
                       openWhatsApp(
                         primary.customer.phone,
                         `Hi ${primary.customer.name}! Just a reminder that ${primary.occasion.label.toLowerCase()} is coming up in ${primary.daysUntil} day${primary.daysUntil === 1 ? '' : 's'} — would you like to place an order? – ${business?.name ?? ''}`
-                      )
+                      ).catch((e) => toast.fromError(e))
                     }
                   />
                 </View>
                 <View style={styles.actionFlex}>
-                  <Button label="Call" variant="outline" onPress={() => openUrl(`tel:${primary.customer.phone}`)} />
+                  <Button label="Call" variant="outline" onPress={() => openUrl(`tel:${primary.customer.phone}`).catch((e) => toast.fromError(e))} />
                 </View>
               </View>
             </View>
@@ -190,9 +207,16 @@ function statusLabel(status: OrderStatus): string {
 }
 
 const styles = StyleSheet.create({
-  headerBlock: {
-    gap: 4,
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
     marginTop: Spacing.two,
+  },
+  headerBlock: {
+    flex: 1,
+    gap: 4,
   },
   callCard: {
     gap: Spacing.two,

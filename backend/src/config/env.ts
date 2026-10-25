@@ -26,4 +26,6 @@ export const env = {
     ? process.env.LOG_PRETTY === "true"
     : nodeEnv === "development" && !isTest && Boolean(process.stdout.isTTY),
   slowQueryMs: Number(process.env.LOG_SLOW_QUERY_MS ?? 500),
+  // When set, business logos must live in this Cloudinary account.
+  cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || null,
 };

@@ -1,0 +1,57 @@
+name: Bug report
+description: Something is broken or behaves incorrectly
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: What went wrong, and where (screen / endpoint)?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to …
+        2. Enter …
+        3. Tap …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+      placeholder: |
+        Expected: …
+        Actual: …
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How we know it is fixed. Make each one checkable.
+      placeholder: |
+        - [ ] …
+        - [ ] …
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Backend (API)
+        - Frontend (app)
+        - Both
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment / logs
+      description: Device, browser, request ID from the error, payload. **Never paste real tokens or passwords.**
+      render: shell

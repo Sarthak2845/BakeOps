@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { getParam } from "../../utils/params";
+import { isAllowedLogoUrl } from "../business/business.schema";
 import * as invoicesService from "./invoices.service";
 
 export async function generateInvoiceHandler(req: Request, res: Response) {
@@ -32,6 +33,18 @@ function escapeHtml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+export async function publicReceiptPdfHandler(req: Request, res: Response) {
+  const { pdf, filename } = await invoicesService.renderPublicInvoicePdf(
+    getParam(req.params, "slug"),
+    getParam(req.params, "invoiceNumber")
+  );
+  res
+    .type("application/pdf")
+    .set("Content-Disposition", `inline; filename="${filename}"`)
+    .set("Cache-Control", "no-store")
+    .send(pdf);
 }
 
 export async function publicReceiptHandler(req: Request, res: Response) {
@@ -70,11 +83,16 @@ export async function publicReceiptHandler(req: Request, res: Response) {
     .totals td { border: none; padding: 4px; }
     .totals .label { text-align: right; color: #666; }
     .totals .value { text-align: right; width: 120px; }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .logo { width: 56px; height: 56px; border-radius: 12px; object-fit: contain; }
     .status { display: inline-block; padding: 2px 10px; border-radius: 999px; background: #eef; font-size: 0.85rem; }
   </style>
 </head>
 <body>
-  <h1>${escapeHtml(business.name)}</h1>
+  <div class="brand">
+    ${business.logoUrl && isAllowedLogoUrl(business.logoUrl) ? `<img class="logo" src="${escapeHtml(business.logoUrl)}" alt="" />` : ""}
+    <h1>${escapeHtml(business.name)}</h1>
+  </div>
   <p class="muted">${escapeHtml(business.address ?? "")}</p>
   <h2>Invoice ${escapeHtml(invoice.invoiceNumber)}</h2>
   <p class="muted">Issued ${new Date(invoice.issuedDate).toDateString()} &middot;
@@ -90,7 +108,7 @@ export async function publicReceiptHandler(req: Request, res: Response) {
     <tr><td class="label">Advance Paid</td><td class="value">${money(order.advancePaid)}</td></tr>
     <tr><td class="label"><strong>Balance Due</strong></td><td class="value"><strong>${money(order.balanceDue)}</strong></td></tr>
   </table>
-  ${invoice.pdfUrl ? `<p><a href="${invoice.pdfUrl}">Download PDF</a></p>` : ""}
+  ${invoice.pdfUrl ? `<p><a href="${escapeHtml(invoice.pdfUrl)}">Download PDF</a></p>` : ""}
   <p class="muted">Thank you for ordering!</p>
 </body>
 </html>`;
