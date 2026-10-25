@@ -1,13 +1,8 @@
 name: Bug report
 description: Something is broken or behaves incorrectly
 title: "[Bug]: "
-labels: ["bug", "status: open"]
+labels: ["bug"]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        This issue follows the workflow **Open → In Progress → RFT → In Testing → UAT Tested → Closed**.
-        See [ISSUE_WORKFLOW.md](../blob/main/.github/ISSUE_WORKFLOW.md) for the commands.
   - type: textarea
     id: summary
     attributes:
@@ -38,7 +33,7 @@ body:
     id: acceptance
     attributes:
       label: Acceptance criteria
-      description: QA tests against these. Make each one checkable.
+      description: How we know it is fixed. Make each one checkable.
       placeholder: |
         - [ ] …
         - [ ] …

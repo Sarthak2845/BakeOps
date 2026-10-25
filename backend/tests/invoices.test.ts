@@ -41,7 +41,7 @@ describe("invoices (core loop)", () => {
     const invoiceRes = await request(app).post(`/api/orders/${orderId}/invoice`).set(auth());
     expect(invoiceRes.status).toBe(201);
     expect(invoiceRes.body.invoice.invoiceNumber).toMatch(/^[A-Z]+-\d{4}-\d{4}$/);
-    expect(invoiceRes.body.invoice.pdfUrl).toMatch(/^\/files\/invoices\//);
+    expect(invoiceRes.body.invoice.pdfUrl).toMatch(/^\/r\/[^/]+\/[^/]+\/pdf$/);
 
     const invoiceId = invoiceRes.body.invoice.id;
     const invoiceNumber = invoiceRes.body.invoice.invoiceNumber;
@@ -53,6 +53,11 @@ describe("invoices (core loop)", () => {
     expect(publicView.status).toBe(200);
     expect(publicView.text).toContain("Invoice Customer");
     expect(publicView.text).toContain(invoiceNumber);
+
+    const pdf = await request(app).get(invoiceRes.body.invoice.pdfUrl);
+    expect(pdf.status).toBe(200);
+    expect(pdf.headers["content-type"]).toMatch(/^application\/pdf/);
+    expect(Buffer.from(pdf.body).subarray(0, 5).toString()).toBe("%PDF-");
 
     const partialPayment = await request(app)
       .post(`/api/invoices/${invoiceId}/payments`)
