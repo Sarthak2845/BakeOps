@@ -1,0 +1,60 @@
+# Render Blueprint for the BakeOps API — two environments:
+#   main branch → bakeops-api-dev  (dev)
+#   prod branch → bakeops-api      (production)
+# Dev redeploys by itself when main passes CI. Production is deployed only by the
+# "Deploy to production" GitHub workflow (tests → deploy hook → wait until live).
+# Setup: Render dashboard → New → Blueprint → pick this repo. See backend/README.md → "Deploying".
+
+previews:
+  generation: "off"
+
+services:
+  - type: web
+    name: bakeops-api-dev
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+    rootDir: backend
+    # Dev dependencies (prisma CLI, typescript) are needed to build, even with NODE_ENV=production.
+    # Migrations run here because the free plan has no pre-deploy step.
+    buildCommand: npm ci --include=dev && npx prisma generate && npx prisma migrate deploy && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false # dev database — Supabase *session* pooler URL (see README)
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+
+  - type: web
+    name: bakeops-api
+    runtime: node
+    plan: free
+    region: singapore
+    branch: prod
+    rootDir: backend
+    buildCommand: npm ci --include=dev && npx prisma generate && npx prisma migrate deploy && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    # Production never deploys by itself: .github/workflows/deploy-prod.yml runs the
+    # tests and then triggers it through the service's Deploy Hook.
+    autoDeployTrigger: "off"
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false # production database — a different one from dev
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false

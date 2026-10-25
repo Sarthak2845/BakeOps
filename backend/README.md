@@ -104,9 +104,41 @@ Import [`postman/BakeOps.postman_collection.json`](postman/BakeOps.postman_colle
 | GET | `/api/invoices/:id` | |
 | POST | `/api/invoices/:id/payments` | `{ amount, method?, paidAt? }` — recomputes `paymentStatus` (UNPAID/PARTIAL/PAID) and the order's `balanceDue` |
 | GET | `/r/:slug/:invoiceNumber` | **Public, no auth** — shareable HTML receipt page, with a link to the PDF |
+| GET | `/r/:slug/:invoiceNumber/pdf` | **Public, no auth** — the invoice PDF (this is the invoice's `pdfUrl`) |
 
-Generated PDFs are written to `backend/storage/invoices/` and served statically at `/files/invoices/<file>.pdf` (local disk — fine for dev; swap for object storage before deploying to a host with an ephemeral filesystem).
+PDFs are rendered on each request, not stored, so they work on hosts with a temporary disk (like Render) and always show the current payment status.
+
+## Deploying
+
+Two environments on Render, described in `render.yaml` at the repo root:
+
+| Branch | Render service | How it deploys |
+|---|---|---|
+| `main` | `bakeops-api-dev` (dev) | Render deploys it automatically once `Backend CI` passes on `main` |
+| `prod` | `bakeops-api` (production) | Only through the **Deploy to production** GitHub workflow |
+
+**Release flow**
+1. Feature branch → PR into `main` → merge. Dev updates by itself.
+2. When dev looks good → PR from `main` into `prod` → merge. The **Deploy to production** workflow (`.github/workflows/deploy-prod.yml`) then:
+   1. runs the backend tests, typecheck and build (`Backend CI`);
+   2. triggers the production deploy through Render's **Deploy Hook**;
+   3. waits until Render reports the deploy as `live` (fails if the build or start fails);
+   4. checks `PRODUCTION_URL/health`.
+
+   If the tests fail, production is not touched. You can re-run it by hand from Actions → Deploy to production → Run workflow.
+
+**One-time setup**
+1. **Two databases:** one for dev, one for production (e.g. two Supabase projects). For each, use the **Session pooler** URL: Supabase → Connect → *Session pooler*, port `5432`. Render can't reach Supabase's direct connection (IPv6-only), and the transaction pooler (`6543`) can hang during `prisma migrate deploy`.
+2. **Create the services:** Render dashboard → **New → Blueprint** → pick this repo. It creates both services from `render.yaml`. Fill in `DATABASE_URL` (each its own database) and optionally `CLOUDINARY_CLOUD_NAME`. `JWT_SECRET` is generated separately for each.
+3. **Connect the production pipeline** — GitHub repo → Settings → Secrets and variables → Actions:
+   - Secret `RENDER_DEPLOY_HOOK_URL`: Render → `bakeops-api` → Settings → **Deploy Hook** (a secret URL — anyone with it can trigger a deploy).
+   - Secret `RENDER_API_KEY`: Render → Account settings → **API Keys**. Lets the workflow wait for the real deploy result; without it, it just waits 5 minutes and checks `/health`.
+   - Variable `PRODUCTION_URL`: e.g. `https://bakeops-api.onrender.com`.
+4. **First deploys:** check `https://<service>.onrender.com/health` returns `{"status":"ok"}` on both.
+5. **Point the app at an environment:** set `EXPO_PUBLIC_API_URL` in `frontend/.env` to the dev or production URL and restart Expo.
+
+On the free plan each service sleeps after 15 minutes without traffic; the first request after that takes about a minute.
 
 ## Deferred (not in this milestone)
 
-Analytics dashboard, notifications/reminders, AI features, n8n automation, and logo/file uploads to object storage — see PRD §5.5–5.7 and §7.
+Analytics dashboard, notifications/reminders, AI features and n8n automation — see PRD §5.5–5.7 and §7.

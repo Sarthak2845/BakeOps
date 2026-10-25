@@ -35,6 +35,18 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+export async function publicReceiptPdfHandler(req: Request, res: Response) {
+  const { pdf, filename } = await invoicesService.renderPublicInvoicePdf(
+    getParam(req.params, "slug"),
+    getParam(req.params, "invoiceNumber")
+  );
+  res
+    .type("application/pdf")
+    .set("Content-Disposition", `inline; filename="${filename}"`)
+    .set("Cache-Control", "no-store")
+    .send(pdf);
+}
+
 export async function publicReceiptHandler(req: Request, res: Response) {
   const { business, invoice } = await invoicesService.getPublicInvoice(
     getParam(req.params, "slug"),
@@ -96,7 +108,7 @@ export async function publicReceiptHandler(req: Request, res: Response) {
     <tr><td class="label">Advance Paid</td><td class="value">${money(order.advancePaid)}</td></tr>
     <tr><td class="label"><strong>Balance Due</strong></td><td class="value"><strong>${money(order.balanceDue)}</strong></td></tr>
   </table>
-  ${invoice.pdfUrl ? `<p><a href="${invoice.pdfUrl}">Download PDF</a></p>` : ""}
+  ${invoice.pdfUrl ? `<p><a href="${escapeHtml(invoice.pdfUrl)}">Download PDF</a></p>` : ""}
   <p class="muted">Thank you for ordering!</p>
 </body>
 </html>`;

@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-import path from "node:path";
 import { authRouter } from "./modules/auth/auth.routes";
 import { businessRouter } from "./modules/business/business.routes";
 import { customersRouter } from "./modules/customers/customers.routes";
@@ -15,8 +14,6 @@ export function createApp() {
   app.use(requestLogger);
   app.use(cors({ exposedHeaders: ["X-Request-Id"] }));
   app.use(express.json());
-
-  app.use("/files", express.static(path.join(__dirname, "..", "storage")));
 
   app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
