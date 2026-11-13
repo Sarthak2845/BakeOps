@@ -1,9 +1,11 @@
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
-import { Colors, Radii, Spacing } from '@/constants/theme';
+import { Colors, Radii, Spacing, themedStyles } from '@/constants/theme';
 import { AppText } from './text';
+import { useTheme } from '@/lib/theme-context';
 
 export function StatTile({ value, label }: { value: string; label: string }) {
+  useTheme();
   return (
     <View style={styles.tile}>
       <AppText variant="h2" numberOfLines={1} adjustsFontSizeToFit>
@@ -16,7 +18,7 @@ export function StatTile({ value, label }: { value: string; label: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   tile: {
     flex: 1,
     backgroundColor: Colors.backgroundMuted,
@@ -25,4 +27,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
     gap: 2,
   },
-});
+}));

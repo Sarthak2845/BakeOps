@@ -8,6 +8,7 @@ import type {
   Order,
   OrderStatus,
   PaymentStatus,
+  Product,
 } from './types';
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000';
@@ -137,6 +138,33 @@ export const customersApi = {
       method: 'POST',
       body: JSON.stringify(input),
     });
+  },
+};
+
+export const productsApi = {
+  list(search?: string) {
+    return apiFetch<{ products: Product[] }>(`/api/products${qs({ search })}`);
+  },
+  create(input: { name: string; unitPrice: number; unit?: string }) {
+    return apiFetch<{ product: Product }>('/api/products', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+  bulkCreate(products: { name: string; unitPrice: number; unit?: string }[]) {
+    return apiFetch<{ created: number; skipped: string[] }>('/api/products/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ products }),
+    });
+  },
+  update(id: string, input: { name?: string; unitPrice?: number; unit?: string | null }) {
+    return apiFetch<{ product: Product }>(`/api/products/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    });
+  },
+  remove(id: string) {
+    return apiFetch<void>(`/api/products/${id}`, { method: 'DELETE' });
   },
 };
 

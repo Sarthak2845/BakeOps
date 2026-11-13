@@ -28,7 +28,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        sync: false # dev database — Supabase *session* pooler URL (see README)
+        sync: false # dev database — Neon direct (non-pooled) URL for the dev branch (see README)
       - key: JWT_SECRET
         generateValue: true
       - key: CLOUDINARY_CLOUD_NAME

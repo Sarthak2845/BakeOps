@@ -1,9 +1,11 @@
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Spacing, themedStyles } from '@/constants/theme';
 import { AppText } from './text';
+import { useTheme } from '@/lib/theme-context';
 
 export function EmptyState({ title, hint }: { title: string; hint?: string }) {
+  useTheme();
   return (
     <View style={styles.container}>
       <AppText variant="bodyBold" style={styles.title}>
@@ -18,7 +20,7 @@ export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   container: {
     paddingVertical: Spacing.five,
     alignItems: 'center',
@@ -30,4 +32,4 @@ const styles = StyleSheet.create({
   hint: {
     textAlign: 'center',
   },
-});
+}));

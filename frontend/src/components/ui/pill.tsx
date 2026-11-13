@@ -1,7 +1,8 @@
-import { StyleSheet, View, type ViewProps } from 'react-native';
+import { View, type ViewProps } from 'react-native';
 
-import { Colors, FontSizes, Fonts, Radii, Spacing } from '@/constants/theme';
+import { Colors, Fonts, FontSizes, Radii, Spacing, themedStyles } from '@/constants/theme';
 import { AppText } from './text';
+import { useTheme } from '@/lib/theme-context';
 
 export type PillTone = 'brand' | 'accentSoft' | 'success' | 'peachSoft' | 'neutral' | 'outline' | 'danger' | 'info';
 
@@ -11,7 +12,7 @@ export type PillProps = ViewProps & {
   size?: 'sm' | 'md';
 };
 
-const TONE_STYLES: Record<PillTone, { bg: string; text: string; border?: string }> = {
+const toneStyles = (): Record<PillTone, { bg: string; text: string; border?: string }> => ({
   brand: { bg: Colors.brand, text: Colors.white },
   accentSoft: { bg: Colors.accentSoft, text: Colors.white },
   success: { bg: Colors.success, text: Colors.white },
@@ -20,10 +21,11 @@ const TONE_STYLES: Record<PillTone, { bg: string; text: string; border?: string 
   outline: { bg: 'transparent', text: Colors.outlineText, border: Colors.outline },
   danger: { bg: Colors.dangerSoft, text: Colors.dangerSoftText },
   info: { bg: Colors.info, text: Colors.white },
-};
+});
 
 export function Pill({ label, tone = 'neutral', size = 'md', style, ...rest }: PillProps) {
-  const t = TONE_STYLES[tone];
+  useTheme();
+  const t = toneStyles()[tone];
   return (
     <View
       style={[
@@ -40,7 +42,7 @@ export function Pill({ label, tone = 'neutral', size = 'md', style, ...rest }: P
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   base: {
     borderRadius: Radii.pill,
     alignSelf: 'flex-start',
@@ -60,4 +62,4 @@ const styles = StyleSheet.create({
   labelSm: {
     fontSize: 11,
   },
-});
+}));

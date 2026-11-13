@@ -1,8 +1,9 @@
 import { ActivityIndicator, Pressable, StyleSheet, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { BrandGradient, Colors, FontSizes, Fonts, Radii, Spacing } from '@/constants/theme';
+import { BrandGradient, Colors, Fonts, FontSizes, Radii, Spacing, themedStyles } from '@/constants/theme';
 import { AppText } from './text';
+import { useTheme } from '@/lib/theme-context';
 
 export type ButtonVariant = 'primary' | 'success' | 'outline' | 'ghost';
 
@@ -15,6 +16,7 @@ export type ButtonProps = Omit<PressableProps, 'style'> & {
 };
 
 export function Button({ label, variant = 'primary', loading, fullWidth = true, disabled, style, ...rest }: ButtonProps) {
+  useTheme();
   const isDisabled = disabled || loading;
   const isPrimary = variant === 'primary';
 
@@ -61,7 +63,7 @@ function textColor(variant: ButtonVariant) {
   return variant === 'outline' || variant === 'ghost' ? Colors.text : Colors.white;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   base: {
     borderRadius: Radii.pill,
     paddingVertical: Spacing.two + 3,
@@ -82,4 +84,4 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodyBold,
     fontSize: FontSizes.bodyLarge,
   },
-});
+}));

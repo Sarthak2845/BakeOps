@@ -32,6 +32,16 @@ export interface AuthUser {
   businessId: string;
 }
 
+export interface Product {
+  id: string;
+  businessId: string;
+  name: string;
+  unitPrice: string;
+  unit: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CustomerOccasion {
   id: string;
   customerId: string;

@@ -1,9 +1,9 @@
-import { Platform } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 // BakeOps: bold & playful — vivid gradient brand, punchy multi-color status
-// tags, white cards with real shadow on a soft lavender ground. One fixed
-// look; does not follow the system light/dark scheme.
-export const Colors = {
+// tags, white cards with real shadow on a soft lavender ground. A light and a
+// dark palette with the same keys; `Colors` always reads the active one.
+const LightColors = {
   background: '#F7F6FD',
   backgroundMuted: '#F1ECFF',
   card: '#FFFFFF',
@@ -40,7 +40,100 @@ export const Colors = {
   warningSoft: '#FEF3C7',
 
   white: '#FFFFFF',
-} as const;
+};
+
+export type Palette = { [K in keyof typeof LightColors]: string };
+
+const DarkColors: Palette = {
+  background: '#0F0B1A',
+  backgroundMuted: '#262040',
+  card: '#1B1530',
+  border: 'rgba(255, 255, 255, 0.10)',
+
+  text: '#F3F0FA',
+  textMuted: '#A7A2B8',
+  textOnDark: '#FFFFFF',
+
+  brand: '#8B5CF6',
+  brandDark: '#C4B5FD',
+  accent: '#F472B6',
+  accentSoft: '#FB923C',
+
+  success: '#22C55E',
+  successSoft: '#12321F',
+  successSoftText: '#86EFAC',
+
+  peachSoft: '#3A1830',
+  peachSoftText: '#F9A8D4',
+
+  neutralPill: '#2E2845',
+  neutralPillText: '#D1D5DB',
+
+  outline: '#4B4563',
+  outlineText: '#C7C2D6',
+
+  danger: '#F87171',
+  dangerSoft: '#3B1418',
+  dangerSoftText: '#FCA5A5',
+
+  info: '#60A5FA',
+  warning: '#FBBF24',
+  warningSoft: '#3A2A0A',
+
+  white: '#FFFFFF',
+};
+
+export type ColorScheme = 'light' | 'dark';
+
+const PALETTES: Record<ColorScheme, Palette> = { light: LightColors, dark: DarkColors };
+
+let activeScheme: ColorScheme = 'light';
+
+/** Called by ThemeProvider (lib/theme-context.tsx) before the app renders. */
+export function setActiveColorScheme(scheme: ColorScheme) {
+  activeScheme = scheme;
+}
+
+export function getActiveColorScheme(): ColorScheme {
+  return activeScheme;
+}
+
+/** The active palette. Read colors at render time (not in module-level constants) so they follow the theme. */
+export const Colors = Object.defineProperties(
+  {} as Palette,
+  Object.fromEntries(
+    (Object.keys(LightColors) as (keyof Palette)[]).map((key) => [
+      key,
+      { enumerable: true, get: () => PALETTES[activeScheme][key] },
+    ])
+  )
+);
+
+/**
+ * Drop-in for StyleSheet.create whose styles follow the active color scheme:
+ * `factory` runs once per scheme (reading `Colors`), and `styles.x` returns the
+ * current scheme's version.
+ */
+export function themedStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.NamedStyles<any>>(
+  factory: () => T & StyleSheet.NamedStyles<any>
+): T {
+  const cache: Partial<Record<ColorScheme, T>> = {};
+  const current = (): T => {
+    const scheme = activeScheme;
+    if (!cache[scheme]) cache[scheme] = StyleSheet.create(factory());
+    return cache[scheme]!;
+  };
+  return new Proxy({} as T, {
+    get: (_target, key) => current()[key as keyof T],
+    has: (_target, key) => key in current(),
+    ownKeys: () => Reflect.ownKeys(current()),
+    getOwnPropertyDescriptor: (_target, key) => ({
+      enumerable: true,
+      configurable: true,
+      value: current()[key as keyof T],
+    }),
+  });
+}
 
 export const BrandGradient = ['#7C3AED', '#EC4899'] as const;
 

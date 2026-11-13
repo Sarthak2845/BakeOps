@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { Button } from '@/components/ui/button';
@@ -9,13 +9,15 @@ import { ErrorState } from '@/components/ui/error-state';
 import { Screen } from '@/components/ui/screen';
 import { AppText } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
-import { Colors, Radii, Spacing } from '@/constants/theme';
+import { Colors, Radii, Spacing, themedStyles } from '@/constants/theme';
 import { getMoneyBreakdown } from '@/lib/business-logic';
 import { formatMoney } from '@/lib/format';
 import { openWhatsApp } from '@/lib/links';
 import { useAddPayment, useInvoices } from '@/lib/queries';
+import { useTheme } from '@/lib/theme-context';
 
 export default function MoneyScreen() {
+  useTheme();
   const { data: invoices = [], isLoading, isError, error, refetch, isRefetching } = useInvoices();
   const addPayment = useAddPayment();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -171,7 +173,7 @@ export default function MoneyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   header: {
     marginTop: Spacing.two,
   },
@@ -224,4 +226,4 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: Spacing.two,
   },
-});
+}));

@@ -1,11 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Colors, MaxContentWidth, Radii, Spacing } from '@/constants/theme';
+import { Colors, MaxContentWidth, Radii, Spacing, themedStyles } from '@/constants/theme';
 import { getErrorMessage } from '@/lib/errors';
 import { AppText } from './text';
+import { useTheme } from '@/lib/theme-context';
 
 export type ToastTone = 'error' | 'success' | 'info';
 
@@ -26,15 +27,16 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-const TONE: Record<ToastTone, { bg: string; fg: string; icon: keyof typeof Ionicons.glyphMap }> = {
+const toneStyles = (): Record<ToastTone, { bg: string; fg: string; icon: keyof typeof Ionicons.glyphMap }> => ({
   error: { bg: Colors.dangerSoft, fg: Colors.dangerSoftText, icon: 'alert-circle' },
   success: { bg: Colors.successSoft, fg: Colors.successSoftText, icon: 'checkmark-circle' },
   info: { bg: Colors.backgroundMuted, fg: Colors.brandDark, icon: 'information-circle' },
-};
+});
 
 // React Native's Alert.alert is a no-op on web, so every user-facing message
 // goes through this in-app toast instead — it renders the same on all platforms.
 export function ToastProvider({ children }: { children: ReactNode }) {
+  useTheme();
   const [toast, setToast] = useState<ToastState | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nextId = useRef(1);
@@ -65,7 +67,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [show]
   );
 
-  const tone = toast ? TONE[toast.tone] : null;
+  const tone = toast ? toneStyles()[toast.tone] : null;
 
   return (
     <ToastContext.Provider value={value}>
@@ -103,7 +105,7 @@ export function useToast(): ToastContextValue {
   return ctx;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   host: {
     position: 'absolute',
     left: 0,
@@ -131,4 +133,4 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-});
+}));
