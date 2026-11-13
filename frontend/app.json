@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "bakeops",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "backgroundColor": "#F7F6FD",
     "android": {
       "adaptiveIcon": {
@@ -34,7 +34,7 @@
     ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": true
+      "reactCompiler": false
     }
   }
 }

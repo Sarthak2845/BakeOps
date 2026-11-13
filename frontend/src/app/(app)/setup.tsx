@@ -1,12 +1,14 @@
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { ShopDetailsForm } from '@/components/shop-details-form';
 import { Screen } from '@/components/ui/screen';
 import { AppText } from '@/components/ui/text';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Spacing, themedStyles } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { useTheme } from '@/lib/theme-context';
 
 export default function SetupScreen() {
+  useTheme();
   const { completeSetup } = useAuth();
 
   return (
@@ -29,7 +31,7 @@ export default function SetupScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   progress: {
     flexDirection: 'row',
     gap: Spacing.one,
@@ -47,4 +49,4 @@ const styles = StyleSheet.create({
   header: {
     gap: Spacing.one,
   },
-});
+}));

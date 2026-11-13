@@ -4,6 +4,7 @@ import { authRouter } from "./modules/auth/auth.routes";
 import { businessRouter } from "./modules/business/business.routes";
 import { customersRouter } from "./modules/customers/customers.routes";
 import { ordersRouter } from "./modules/orders/orders.routes";
+import { productsRouter } from "./modules/products/products.routes";
 import { invoicesRouter, publicReceiptRouter } from "./modules/invoices/invoices.routes";
 import { errorHandler, notFoundHandler } from "./middleware/error.middleware";
 import { requestLogger } from "./middleware/requestLogger.middleware";
@@ -21,6 +22,7 @@ export function createApp() {
   app.use("/api/business", businessRouter);
   app.use("/api/customers", customersRouter);
   app.use("/api/orders", ordersRouter);
+  app.use("/api/products", productsRouter);
   app.use("/api/invoices", invoicesRouter);
   app.use("/r", publicReceiptRouter);
 

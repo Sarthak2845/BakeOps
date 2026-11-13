@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { ActivityIndicator, Pressable, Switch, View } from 'react-native';
 import { Image } from 'expo-image';
 
 import { Button } from '@/components/ui/button';
@@ -7,13 +7,14 @@ import { FormError } from '@/components/ui/form-error';
 import { AppText } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
 import { useToast } from '@/components/ui/toast';
-import { Colors, Radii, Spacing } from '@/constants/theme';
+import { Colors, Radii, Spacing, themedStyles } from '@/constants/theme';
 import { businessApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { pickLogo, uploadLogo } from '@/lib/cloudinary';
 import { getErrorMessage, getFieldErrors, type FieldErrors } from '@/lib/errors';
 import type { Business } from '@/lib/types';
 import { hasErrors, validateLength, validatePhone } from '@/lib/validators';
+import { useTheme } from '@/lib/theme-context';
 
 // 15-character Indian GSTIN: 2-digit state code, PAN, entity code, 'Z', checksum.
 const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
@@ -25,6 +26,7 @@ const CATEGORIES = ['Bakery', 'Tiffin', 'Tailoring', 'Other'];
  * Shop settings. The logo saves as soon as it's uploaded; the rest saves on submit.
  */
 export function ShopDetailsForm({ submitLabel, onSaved }: { submitLabel: string; onSaved: (business: Business) => void }) {
+  useTheme();
   const { business, setBusiness } = useAuth();
   const toast = useToast();
 
@@ -241,7 +243,7 @@ export function ShopDetailsForm({ submitLabel, onSaved }: { submitLabel: string;
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -326,4 +328,4 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     gap: 4,
   },
-});
+}));

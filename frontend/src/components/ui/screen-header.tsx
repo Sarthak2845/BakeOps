@@ -1,7 +1,8 @@
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
-import { Spacing } from '@/constants/theme';
+import { Spacing, themedStyles } from '@/constants/theme';
 import { AppText } from './text';
+import { useTheme } from '@/lib/theme-context';
 
 export function ScreenHeader({
   eyebrow,
@@ -12,6 +13,7 @@ export function ScreenHeader({
   title: string;
   right?: React.ReactNode;
 }) {
+  useTheme();
   return (
     <View style={styles.row}>
       <View style={styles.textCol}>
@@ -23,7 +25,7 @@ export function ScreenHeader({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   row: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -33,4 +35,4 @@ const styles = StyleSheet.create({
   textCol: {
     gap: 4,
   },
-});
+}));

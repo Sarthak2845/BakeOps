@@ -7,8 +7,10 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
 import { ToastProvider } from '@/components/ui/toast';
+import { Colors } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { queryClient } from '@/lib/query-client';
+import { ThemeProvider, useTheme } from '@/lib/theme-context';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -25,16 +27,19 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <AuthProvider>
-          <RootNavigator />
-        </AuthProvider>
-      </ToastProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <RootNavigator />
+          </AuthProvider>
+        </ToastProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
 
 function RootNavigator() {
+  useTheme();
   const { isLoading, token } = useAuth();
 
   // The Stack (and expo-router's own linking/URL resolution) must stay
@@ -45,7 +50,7 @@ function RootNavigator() {
   return (
     <>
       <SplashScreenController isLoading={isLoading} />
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.background } }}>
         <Stack.Protected guard={!!token}>
           <Stack.Screen name="(app)" />
         </Stack.Protected>

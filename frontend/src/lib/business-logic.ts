@@ -1,5 +1,5 @@
 import { daysBetween, toNumber } from './format';
-import type { Customer, CustomerOccasion, Invoice, Order } from './types';
+import type { Customer, CustomerOccasion, Invoice, Order, OrderStatus } from './types';
 
 const ACTIVE_STATUSES = new Set(['INQUIRY', 'CONFIRMED', 'IN_PROGRESS', 'READY', 'DELIVERED']);
 
@@ -218,3 +218,81 @@ export function getMoneyBreakdown(invoices: Invoice[], today: Date): MoneyBreakd
 }
 
 export { ACTIVE_STATUSES };
+
+// --- Home dashboard ---------------------------------------------------------
+
+export const OPEN_STATUSES: OrderStatus[] = ['INQUIRY', 'CONFIRMED', 'IN_PROGRESS', 'READY'];
+
+export function isOpenOrder(order: Order): boolean {
+  return OPEN_STATUSES.includes(order.status);
+}
+
+/** The next pipeline step and the button label for it, or null once delivered/cancelled. */
+export function nextStep(status: OrderStatus): { status: OrderStatus; label: string } | null {
+  switch (status) {
+    case 'INQUIRY':
+      return { status: 'CONFIRMED', label: 'Confirm' };
+    case 'CONFIRMED':
+      return { status: 'IN_PROGRESS', label: 'Start baking' };
+    case 'IN_PROGRESS':
+      return { status: 'READY', label: 'Mark ready' };
+    case 'READY':
+      return { status: 'DELIVERED', label: 'Delivered' };
+    default:
+      return null;
+  }
+}
+
+/** Delivery dates saved without a time are stored at midnight. */
+export function hasDeliveryTime(dateStr: string): boolean {
+  const d = new Date(dateStr);
+  return d.getHours() !== 0 || d.getMinutes() !== 0;
+}
+
+export function deliveryTimeLabel(dateStr: string | null): string {
+  if (!dateStr) return '';
+  if (!hasDeliveryTime(dateStr)) return 'Any time';
+  return new Date(dateStr).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+}
+
+/** Open orders whose delivery is already past: an earlier day, or a set time today that has passed. */
+export function isLate(order: Order, now: Date): boolean {
+  if (!order.deliveryDate || !isOpenOrder(order)) return false;
+  const due = new Date(order.deliveryDate);
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (due < startOfToday) return true;
+  return due.toDateString() === now.toDateString() && hasDeliveryTime(order.deliveryDate) && due < now;
+}
+
+/** Deliveries on a day, earliest first, with "any time" orders last. */
+export function deliveriesOn(orders: Order[], day: Date): Order[] {
+  return ordersOnDate(orders, day)
+    .filter(isActiveOrder)
+    .sort((a, b) => {
+      const at = hasDeliveryTime(a.deliveryDate!) ? new Date(a.deliveryDate!).getTime() : Infinity;
+      const bt = hasDeliveryTime(b.deliveryDate!) ? new Date(b.deliveryDate!).getTime() : Infinity;
+      return at - bt;
+    });
+}
+
+export interface PrepItem {
+  description: string;
+  quantity: number;
+  orders: number;
+}
+
+/** What still has to be made: items of the given orders not yet ready, combined by name. */
+export function prepList(orders: Order[]): PrepItem[] {
+  const map = new Map<string, PrepItem>();
+  for (const order of orders) {
+    if (!['INQUIRY', 'CONFIRMED', 'IN_PROGRESS'].includes(order.status)) continue;
+    for (const item of order.items) {
+      const key = item.description.trim().toLowerCase();
+      const entry = map.get(key) ?? { description: item.description.trim(), quantity: 0, orders: 0 };
+      entry.quantity += toNumber(item.quantity);
+      entry.orders += 1;
+      map.set(key, entry);
+    }
+  }
+  return [...map.values()].sort((a, b) => b.quantity - a.quantity);
+}

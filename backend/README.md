@@ -108,6 +108,17 @@ Import [`postman/BakeOps.postman_collection.json`](postman/BakeOps.postman_colle
 
 PDFs are rendered on each request, not stored, so they work on hosts with a temporary disk (like Render) and always show the current payment status.
 
+## Products
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/api/products` | `{ name, unitPrice, unit? }`. 409 if the shop already has this name (case-insensitive) |
+| POST | `/api/products/bulk` | `{ products: [{ name, unitPrice, unit? }] }`, up to 500. Names already saved are skipped. Returns `{ created, skipped }` |
+| GET | `/api/products?search=` | Sorted by name; `search` matches part of the name, case-insensitive |
+| GET | `/api/products/:id` | |
+| PATCH | `/api/products/:id` | Any of the create fields; `unit: null` clears the unit |
+| DELETE | `/api/products/:id` | Past orders are unaffected: order items keep their own copy of the name and price |
+
 ## Deploying
 
 Two environments on Render, described in `render.yaml` at the repo root:
@@ -128,7 +139,7 @@ Two environments on Render, described in `render.yaml` at the repo root:
    If the tests fail, production is not touched. You can re-run it by hand from Actions → Deploy to production → Run workflow.
 
 **One-time setup**
-1. **Two databases:** one for dev, one for production (e.g. two Supabase projects). For each, use the **Session pooler** URL: Supabase → Connect → *Session pooler*, port `5432`. Render can't reach Supabase's direct connection (IPv6-only), and the transaction pooler (`6543`) can hang during `prisma migrate deploy`.
+1. **Two databases (Neon):** in your Neon project, use the `main` branch for production and create a `dev` branch for dev (Branches → New branch). Each branch has its own data and its own connection string. For each one: **Dashboard → Connect** → pick the branch, database `neondb`, role → turn **Connection pooling off** → copy the URL (`postgresql://…@ep-….neon.tech/neondb?sslmode=require`). The direct (non-pooled) URL is the safe choice because `prisma migrate deploy` runs with it during the build.
 2. **Create the services:** Render dashboard → **New → Blueprint** → pick this repo. It creates both services from `render.yaml`. Fill in `DATABASE_URL` (each its own database) and optionally `CLOUDINARY_CLOUD_NAME`. `JWT_SECRET` is generated separately for each.
 3. **Connect the production pipeline** — GitHub repo → Settings → Secrets and variables → Actions:
    - Secret `RENDER_DEPLOY_HOOK_URL`: Render → `bakeops-api` → Settings → **Deploy Hook** (a secret URL — anyone with it can trigger a deploy).

@@ -1,7 +1,8 @@
-import { Platform, StyleSheet, View, type ViewProps } from 'react-native';
+import { Platform, View, type ViewProps } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { BrandGradient, Colors, Radii, Spacing } from '@/constants/theme';
+import { BrandGradient, Colors, Radii, Spacing, themedStyles } from '@/constants/theme';
+import { useTheme } from '@/lib/theme-context';
 
 export type CardProps = ViewProps & {
   tone?: 'card' | 'brand' | 'muted' | 'successSoft';
@@ -10,6 +11,7 @@ export type CardProps = ViewProps & {
 };
 
 export function Card({ style, tone = 'card', padded = true, elevated, children, ...rest }: CardProps) {
+  useTheme();
   const shadow = elevated ?? tone === 'card';
 
   if (tone === 'brand') {
@@ -51,7 +53,7 @@ function toneColor(tone: NonNullable<CardProps['tone']>) {
   }
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   base: {
     borderRadius: Radii.lg,
   },
@@ -68,4 +70,4 @@ const styles = StyleSheet.create({
       elevation: 3,
     },
   }),
-});
+}));

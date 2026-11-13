@@ -9,10 +9,11 @@ import { ErrorState } from '@/components/ui/error-state';
 import { Pill, type PillTone } from '@/components/ui/pill';
 import { Screen } from '@/components/ui/screen';
 import { AppText } from '@/components/ui/text';
-import { Colors, FontSizes, Fonts, Radii, Spacing } from '@/constants/theme';
+import { Colors, Fonts, FontSizes, Radii, Spacing, themedStyles } from '@/constants/theme';
 import { formatDate, formatMoney, toNumber } from '@/lib/format';
 import { useOrders } from '@/lib/queries';
 import type { Order, OrderStatus } from '@/lib/types';
+import { useTheme } from '@/lib/theme-context';
 
 const STATUS_TONE: Record<OrderStatus, PillTone> = {
   INQUIRY: 'outline',
@@ -35,6 +36,7 @@ function statusLabel(status: OrderStatus): string {
 }
 
 export default function OrdersListScreen() {
+  useTheme();
   const { data: orders = [], isLoading, isError, error, refetch, isRefetching } = useOrders();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<OrderStatus | 'ALL'>('ALL');
@@ -102,6 +104,7 @@ export default function OrdersListScreen() {
 }
 
 function OrderRow({ order }: { order: Order }) {
+  useTheme();
   return (
     <Pressable onPress={() => router.push(`/orders/${order.id}`)}>
       <Card>
@@ -126,7 +129,7 @@ function OrderRow({ order }: { order: Order }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   header: {
     gap: 4,
     marginTop: Spacing.two,
@@ -179,4 +182,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-});
+}));

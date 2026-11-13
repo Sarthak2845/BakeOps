@@ -9,11 +9,12 @@ import { ErrorState } from '@/components/ui/error-state';
 import { Screen } from '@/components/ui/screen';
 import { AppText } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Spacing, themedStyles } from '@/constants/theme';
 import { formatDate, formatMoney } from '@/lib/format';
 import { openUrl, openWhatsApp } from '@/lib/links';
 import { useGenerateInvoice, useOrder, useUpdateOrderStatus } from '@/lib/queries';
 import type { OrderStatus } from '@/lib/types';
+import { useTheme } from '@/lib/theme-context';
 
 const PIPELINE: OrderStatus[] = ['INQUIRY', 'CONFIRMED', 'IN_PROGRESS', 'READY', 'DELIVERED'];
 const PIPELINE_LABEL: Record<OrderStatus, string> = {
@@ -26,6 +27,7 @@ const PIPELINE_LABEL: Record<OrderStatus, string> = {
 };
 
 export default function OrderDetailScreen() {
+  useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: order, isLoading, isError, error, refetch, isRefetching } = useOrder(id);
   const updateStatus = useUpdateOrderStatus();
@@ -184,7 +186,7 @@ export default function OrderDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   centerFill: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -254,4 +256,4 @@ const styles = StyleSheet.create({
   actions: {
     gap: Spacing.two,
   },
-});
+}));

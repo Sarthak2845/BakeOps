@@ -1,10 +1,11 @@
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Spacing, themedStyles } from '@/constants/theme';
 import { getErrorMessage } from '@/lib/errors';
 import { Button } from './button';
 import { AppText } from './text';
+import { useTheme } from '@/lib/theme-context';
 
 /** Shown in place of content when a screen's data failed to load. */
 export function ErrorState({
@@ -18,6 +19,7 @@ export function ErrorState({
   onRetry?: () => void;
   retrying?: boolean;
 }) {
+  useTheme();
   return (
     <View style={styles.container} accessibilityRole="alert">
       <Ionicons name="cloud-offline-outline" size={32} color={Colors.danger} />
@@ -34,7 +36,7 @@ export function ErrorState({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   container: {
     paddingVertical: Spacing.five,
     paddingHorizontal: Spacing.three,
@@ -48,4 +50,4 @@ const styles = StyleSheet.create({
     marginTop: Spacing.two,
     paddingHorizontal: Spacing.four,
   },
-});
+}));
