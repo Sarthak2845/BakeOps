@@ -2,6 +2,15 @@ import type { Request, Response } from "express";
 import { getParam } from "../../utils/params";
 import * as ordersService from "./orders.service";
 
+export async function publicTrackingHandler(req: Request, res: Response) {
+  const tracking = await ordersService.getPublicOrderTracking(
+    getParam(req.params, "slug"),
+    getParam(req.params, "orderId")
+  );
+  // The tracking page polls this; never let a browser or proxy cache a stale status.
+  res.set("Cache-Control", "no-store").json(tracking);
+}
+
 export async function createOrderHandler(req: Request, res: Response) {
   const order = await ordersService.createOrder(req.auth!.businessId, req.body);
   res.status(201).json({ order });
