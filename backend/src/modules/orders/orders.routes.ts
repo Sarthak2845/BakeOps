@@ -13,6 +13,7 @@ import {
   deleteOrderHandler,
   getOrderHandler,
   listOrdersHandler,
+  publicTrackingHandler,
   updateOrderHandler,
   updateOrderStatusHandler,
 } from "./orders.controller";
@@ -34,3 +35,7 @@ ordersRouter.patch(
 ordersRouter.delete("/:id", asyncHandler(deleteOrderHandler));
 
 ordersRouter.post("/:id/invoice", asyncHandler(generateInvoiceHandler));
+
+// Public, no auth: read by the customer tracking page on the website.
+export const publicTrackingRouter = Router();
+publicTrackingRouter.get("/:slug/:orderId", asyncHandler(publicTrackingHandler));

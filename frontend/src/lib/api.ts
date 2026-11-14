@@ -12,6 +12,8 @@ import type {
 } from './types';
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000';
+// The public website: hosts the customer order-tracking page.
+export const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL ?? 'https://bakeops.me').replace(/\/+$/, '');
 
 export interface ApiIssue {
   path: string;
@@ -197,6 +199,10 @@ export const ordersApi = {
   },
   remove(id: string) {
     return apiFetch<void>(`/api/orders/${id}`, { method: 'DELETE' });
+  },
+  /** Public tracking page for a customer; no login needed. */
+  trackingUrl(slug: string, orderId: string) {
+    return `${SITE_URL}/track/${encodeURIComponent(slug)}/${encodeURIComponent(orderId)}`;
   },
   generateInvoice(orderId: string) {
     return apiFetch<{ invoice: Invoice }>(`/api/orders/${orderId}/invoice`, { method: 'POST' });

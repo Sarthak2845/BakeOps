@@ -1,0 +1,13 @@
+node_modules/
+
+# Next.js build output (rebuilt on every deploy)
+.next/
+.next-*/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Local settings
+.env
+.env.*
+!.env.example
