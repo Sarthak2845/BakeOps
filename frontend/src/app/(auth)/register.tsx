@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { Link } from 'expo-router';
 
+import { LogoPicker } from '@/components/logo-picker';
 import { Button } from '@/components/ui/button';
 import { FormError } from '@/components/ui/form-error';
 import { Screen } from '@/components/ui/screen';
@@ -27,6 +28,7 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -58,6 +60,7 @@ export default function RegisterScreen() {
         email: email.trim(),
         password,
         phone: phone.trim() || undefined,
+        logoUrl: logoUrl ?? undefined,
       });
       // AuthProvider flips `needsSetup`; the (app) group redirects to /setup itself
       // once its stack mounts (see (app)/_layout.tsx) — replacing here would race
@@ -81,6 +84,12 @@ export default function RegisterScreen() {
       </View>
 
       <View style={styles.form}>
+        <LogoPicker
+          value={logoUrl}
+          onChange={(url) => setLogoUrl(url)}
+          optional
+          hint="Add it now or later. It appears on every receipt."
+        />
         <TextField
           label="Shop name"
           placeholder="Sunita's Cake Studio"

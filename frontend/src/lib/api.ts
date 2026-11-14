@@ -87,6 +87,7 @@ export const authApi = {
     email: string;
     password: string;
     phone?: string;
+    logoUrl?: string;
   }) {
     return apiFetch<{ token: string; business: Business; user: AuthUser }>('/api/auth/register', {
       method: 'POST',

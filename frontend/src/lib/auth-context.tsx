@@ -21,6 +21,7 @@ interface AuthContextValue {
     email: string;
     password: string;
     phone?: string;
+    logoUrl?: string;
   }) => Promise<void>;
   logout: () => Promise<void>;
   setBusiness: (business: Business) => void;
@@ -66,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: string;
       password: string;
       phone?: string;
+      logoUrl?: string;
     }) => {
       const res = await authApi.register(input);
       setAuthToken(res.token);
