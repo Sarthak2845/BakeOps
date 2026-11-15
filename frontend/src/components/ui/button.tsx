@@ -38,7 +38,13 @@ export function Button({ label, variant = 'primary', loading, fullWidth = true, 
       {loading ? (
         <ActivityIndicator color={variant === 'outline' || variant === 'ghost' ? Colors.text : Colors.white} />
       ) : (
-        <AppText variant="bodyBold" style={[styles.label, { color: textColor(variant) }]}>
+        <AppText
+          variant="bodyBold"
+          style={[styles.label, { color: textColor(variant) }]}
+          // One line, shrinking a little if needed, so a long label never wraps out of view.
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}>
           {label}
         </AppText>
       )}

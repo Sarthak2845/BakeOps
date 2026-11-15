@@ -130,6 +130,10 @@ export default function MoneyScreen() {
                 </View>
                 <View style={styles.rowAction}>
                   <Button
+                    // A new key remounts the button when it switches to "Confirm ₹…".
+                    // Android otherwise keeps the old label's size and can leave the
+                    // longer text undrawn (an empty green button).
+                    key={confirmId === invoice.id ? 'confirm' : 'mark'}
                     label={confirmId === invoice.id ? `Confirm ${formatMoney(balance)}` : 'Mark paid'}
                     variant={confirmId === invoice.id ? 'success' : 'outline'}
                     loading={busyId === invoice.id}

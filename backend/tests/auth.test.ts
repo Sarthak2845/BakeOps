@@ -20,6 +20,31 @@ describe("auth", () => {
     expect(res.body.user.passwordHash).toBeUndefined();
   });
 
+  it("saves an optional Cloudinary logo, and rejects other image hosts", async () => {
+    // Use the configured Cloudinary account: logos from any other account are rejected.
+    const cloud = process.env.CLOUDINARY_CLOUD_NAME || "demo";
+    const logoUrl = `https://res.cloudinary.com/${cloud}/image/upload/v1/bakeops-logos/shop.png`;
+    const withLogo = await request(app).post("/api/auth/register").send({
+      businessName: "Logo Bakery",
+      ownerName: "Test Owner",
+      email: uniqueEmail("logo"),
+      password: "supersecret123",
+      logoUrl,
+    });
+    expect(withLogo.status).toBe(201);
+    createdBusinessIds.push(withLogo.body.business.id);
+    expect(withLogo.body.business.logoUrl).toBe(logoUrl);
+
+    const badHost = await request(app).post("/api/auth/register").send({
+      businessName: "Bad Logo Bakery",
+      ownerName: "Test Owner",
+      email: uniqueEmail("badlogo"),
+      password: "supersecret123",
+      logoUrl: "https://evil.example.com/logo.png",
+    });
+    expect(badHost.status).toBe(400);
+  });
+
   it("rejects duplicate email registration", async () => {
     const email = uniqueEmail("dupe");
     const first = await registerBusiness({ email });
