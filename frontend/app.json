@@ -14,7 +14,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "me.sarthakrana.bakeops"
     },
     "web": {
       "output": "static",
@@ -35,6 +36,22 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": false
-    }
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/6737b593-930d-4169-8bf6-c00144b14d8b"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6737b593-930d-4169-8bf6-c00144b14d8b"
+      }
+    },
+    "owner": "shivoham28",
+    "ios": {}
   }
 }
