@@ -59,7 +59,7 @@ services:
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
 
-  # The public website (bakeops.me): brand pages + customer order tracking (issue #29).
+  # The public website (bakeops.sarthak-rana.me): brand pages + customer order tracking (issue #29).
   # A free static site, built from `website/` with Next.js static export.
   - type: web
     name: bakeops-site
@@ -83,6 +83,8 @@ services:
         name: Referrer-Policy
         value: strict-origin-when-cross-origin
     envVars:
+      - key: NEXT_PUBLIC_SITE_URL
+        value: https://bakeops.sarthak-rana.me
       - key: NEXT_PUBLIC_API_URL
         value: https://bakeops-api-njig.onrender.com
       - key: NEXT_PUBLIC_APK_URL

@@ -1,8 +1,11 @@
-export const SITE_URL = 'https://bakeops.me';
+const trim = (v: string | undefined) => (v ?? '').trim();
+
+/** Public address of this site; tracking links are <site>/track/<shop>/<order>. */
+export const SITE_URL = trim(process.env.NEXT_PUBLIC_SITE_URL).replace(/\/+$/, '') || 'https://bakeops.sarthak-rana.me';
+/** The address without https://, for showing to people. */
+export const SITE_HOST = SITE_URL.replace(/^https?:\/\//, '');
 export const SITE_NAME = 'BakeOps';
 export const TAGLINE = 'Orders, deliveries and payments for your home bakery, in one app.';
-
-const trim = (v: string | undefined) => (v ?? '').trim();
 
 export const API_URL = trim(process.env.NEXT_PUBLIC_API_URL).replace(/\/+$/, '') || 'https://bakeops-api-njig.onrender.com';
 export const APK_URL = trim(process.env.NEXT_PUBLIC_APK_URL);

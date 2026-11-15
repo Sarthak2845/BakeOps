@@ -212,7 +212,7 @@ export async function updateOrderStatus(businessId: string, orderId: string, sta
 }
 
 /**
- * Public, no-login order tracking for the customer (bakeops.me/track/:slug/:orderId).
+ * Public, no-login order tracking for the customer (<website>/track/:slug/:orderId).
  * Returns only what the customer needs: never notes, the phone number, or other customers.
  */
 export async function getPublicOrderTracking(slug: string, orderId: string) {

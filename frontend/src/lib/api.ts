@@ -13,7 +13,7 @@ import type {
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000';
 // The public website: hosts the customer order-tracking page.
-export const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL ?? 'https://bakeops.me').replace(/\/+$/, '');
+export const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL ?? 'https://bakeops.sarthak-rana.me').replace(/\/+$/, '');
 
 export interface ApiIssue {
   path: string;

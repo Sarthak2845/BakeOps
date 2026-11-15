@@ -1,4 +1,4 @@
-# BakeOps website (bakeops.me)
+# BakeOps website (bakeops.sarthak-rana.me)
 
 Brand site and the public customer order-tracking page (issue #29, #4). Next.js with static export: every page is plain HTML in `out/`, hosted free as a Render static site (`bakeops-site` in `render.yaml`).
 
@@ -27,6 +27,7 @@ Baked in at build time (set them on Render → `bakeops-site` → Environment). 
 
 | Variable | What |
 |---|---|
+| `NEXT_PUBLIC_SITE_URL` | Public address of the site (default `https://bakeops.sarthak-rana.me`) |
 | `NEXT_PUBLIC_API_URL` | Production API; the tracking page reads `GET /api/track/:slug/:orderId` |
 | `NEXT_PUBLIC_APK_URL` | Latest Android APK. Empty → the Download page says "coming soon" |
 | `NEXT_PUBLIC_WHATSAPP` | WhatsApp number, international format without `+` (e.g. `919822041556`) |
@@ -34,8 +35,11 @@ Baked in at build time (set them on Render → `bakeops-site` → Environment). 
 
 ## Hosting and domain
 1. Render dashboard → **Blueprint** → **Sync** (or New → Static Site from `render.yaml`). It builds `website/` from the `prod` branch.
-2. Render → `bakeops-site` → **Settings → Custom Domains** → add `bakeops.me` and `www.bakeops.me`.
-3. At your domain registrar, add the DNS records Render shows (an `A`/`ALIAS` record for `bakeops.me`, a `CNAME` for `www`). Render issues the HTTPS certificate automatically.
+2. Render → `bakeops-site` → **Settings → Custom Domains** → add `bakeops.sarthak-rana.me`.
+3. Namecheap (DNS for `sarthak-rana.me`) → **Domain List → Manage → Advanced DNS → Add new record**:
+   - Type **CNAME Record**, Host **`bakeops`**, Value: the service's Render address (e.g. `bakeops-site-xxxx.onrender.com`), TTL Automatic.
+4. Back on Render, click **Verify**. Render issues the HTTPS certificate automatically, usually within an hour.
+5. The app's tracking links use `EXPO_PUBLIC_SITE_URL` (default the same address), so nothing else needs changing.
 
 ## Images
 - `public/screens/*.png`: app screenshots (390×844 @2x) with sample data, light and dark.

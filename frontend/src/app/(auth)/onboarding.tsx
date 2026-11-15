@@ -217,7 +217,7 @@ function TrackingIllustration({ t }: { t: Animated.Value }) {
         </View>
         <AppText variant="small">Hi Priya! Track your order here:</AppText>
         <AppText variant="small" color={Colors.brand} style={styles.bold}>
-          bakeops.me/track/sunita/…
+          bakeops.sarthak-rana.me/track/…
         </AppText>
       </Animated.View>
 
