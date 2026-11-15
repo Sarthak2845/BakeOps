@@ -28,7 +28,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        sync: false # dev database — Supabase *session* pooler URL (see README)
+        sync: false # dev database — Neon direct (non-pooled) URL for the dev branch (see README)
       - key: JWT_SECRET
         generateValue: true
       - key: CLOUDINARY_CLOUD_NAME
@@ -57,4 +57,39 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+
+  # The public website (bakeops.sarthak-rana.me): brand pages + customer order tracking (issue #29).
+  # A free static site, built from `website/` with Next.js static export.
+  - type: web
+    name: bakeops-site
+    runtime: static
+    branch: prod
+    rootDir: website
+    buildCommand: npm ci && npm run build
+    staticPublishPath: out
+    autoDeployTrigger: commit
+    # Every tracking link is served by the one static tracking page, which reads
+    # the shop and order from the URL.
+    routes:
+      - type: rewrite
+        source: /track/*
+        destination: /track/index.html
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+    envVars:
+      - key: NEXT_PUBLIC_SITE_URL
+        value: https://bakeops.sarthak-rana.me
+      - key: NEXT_PUBLIC_API_URL
+        value: https://bakeops-api-njig.onrender.com
+      - key: NEXT_PUBLIC_APK_URL
+        sync: false # latest APK link, once the first build exists (#26)
+      - key: NEXT_PUBLIC_WHATSAPP
+        sync: false
+      - key: NEXT_PUBLIC_EMAIL
         sync: false

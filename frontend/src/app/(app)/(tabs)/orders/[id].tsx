@@ -9,11 +9,14 @@ import { ErrorState } from '@/components/ui/error-state';
 import { Screen } from '@/components/ui/screen';
 import { AppText } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Spacing, themedStyles } from '@/constants/theme';
+import { ordersApi } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 import { formatDate, formatMoney } from '@/lib/format';
-import { openUrl, openWhatsApp } from '@/lib/links';
+import { copyToClipboard, openUrl, openWhatsApp } from '@/lib/links';
 import { useGenerateInvoice, useOrder, useUpdateOrderStatus } from '@/lib/queries';
 import type { OrderStatus } from '@/lib/types';
+import { useTheme } from '@/lib/theme-context';
 
 const PIPELINE: OrderStatus[] = ['INQUIRY', 'CONFIRMED', 'IN_PROGRESS', 'READY', 'DELIVERED'];
 const PIPELINE_LABEL: Record<OrderStatus, string> = {
@@ -26,12 +29,14 @@ const PIPELINE_LABEL: Record<OrderStatus, string> = {
 };
 
 export default function OrderDetailScreen() {
+  useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: order, isLoading, isError, error, refetch, isRefetching } = useOrder(id);
   const updateStatus = useUpdateOrderStatus();
   const generateInvoice = useGenerateInvoice();
   const [busy, setBusy] = useState(false);
   const toast = useToast();
+  const { business } = useAuth();
 
   if (isError && !order) {
     return (
@@ -58,6 +63,23 @@ export default function OrderDetailScreen() {
   const currentIndex = PIPELINE.indexOf(order.status);
   const nextStatus = order.status === 'CANCELLED' ? null : PIPELINE[currentIndex + 1];
   const canCancel = order.status !== 'DELIVERED' && order.status !== 'CANCELLED';
+  const trackingUrl = business ? ordersApi.trackingUrl(business.slug, order.id) : null;
+
+  function sendTrackingLink() {
+    if (!trackingUrl) return;
+    const first = order!.customer.name.trim().split(/\s+/)[0];
+    openWhatsApp(
+      order!.customer.phone,
+      `Hi ${first}! Track your order from ${business?.name ?? 'us'} here: ${trackingUrl}`
+    ).catch((e) => toast.fromError(e));
+  }
+
+  function copyTrackingLink() {
+    if (!trackingUrl) return;
+    copyToClipboard(trackingUrl)
+      .then(() => toast.success('Tracking link copied'))
+      .catch((e) => toast.fromError(e));
+  }
 
   async function advance(status: OrderStatus) {
     setBusy(true);
@@ -170,6 +192,17 @@ export default function OrderDetailScreen() {
       <View style={styles.actions}>
         {nextStatus ? <Button label={`Mark as ${PIPELINE_LABEL[nextStatus]}`} onPress={() => advance(nextStatus)} loading={busy} /> : null}
 
+        {trackingUrl && order.status !== 'CANCELLED' ? (
+          <View style={styles.shareRow}>
+            <View style={styles.shareButton}>
+              <Button label="Send tracking link" variant="success" onPress={sendTrackingLink} />
+            </View>
+            <Pressable style={styles.copyButton} onPress={copyTrackingLink} accessibilityLabel="Copy tracking link">
+              <Ionicons name="copy-outline" size={18} color={Colors.brand} />
+            </Pressable>
+          </View>
+        ) : null}
+
         {order.invoice ? (
           <Button label="View receipt" variant="outline" onPress={() => router.push(`/receipt/${order.invoice!.id}`)} />
         ) : (
@@ -184,7 +217,7 @@ export default function OrderDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   centerFill: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -254,4 +287,20 @@ const styles = StyleSheet.create({
   actions: {
     gap: Spacing.two,
   },
-});
+  shareRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  shareButton: {
+    flex: 1,
+  },
+  copyButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.backgroundMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+}));

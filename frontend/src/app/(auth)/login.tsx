@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Link } from 'expo-router';
 
 import { Button } from '@/components/ui/button';
@@ -7,12 +7,14 @@ import { FormError } from '@/components/ui/form-error';
 import { Screen } from '@/components/ui/screen';
 import { AppText } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Spacing, themedStyles } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { getErrorMessage, getFieldErrors, type FieldErrors } from '@/lib/errors';
 import { hasErrors, validateEmail, validateRequired } from '@/lib/validators';
+import { useTheme } from '@/lib/theme-context';
 
 export default function LoginScreen() {
+  useTheme();
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -89,7 +91,7 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   header: {
     gap: Spacing.one,
     marginTop: Spacing.six,
@@ -103,4 +105,4 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: Spacing.two,
   },
-});
+}));

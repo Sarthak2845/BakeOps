@@ -1,12 +1,13 @@
 import { forwardRef } from 'react';
-import { Platform, Pressable, StyleSheet, View, type PressableProps } from 'react-native';
+import { Platform, Pressable, View, type PressableProps } from 'react-native';
 import { Link } from 'expo-router';
 import { TabList, TabSlot, TabTrigger, Tabs, type TabTriggerSlotProps } from 'expo-router/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { AppText } from '@/components/ui/text';
-import { BrandGradient, Colors, Radii, Spacing } from '@/constants/theme';
+import { BrandGradient, Colors, Radii, Spacing, themedStyles } from '@/constants/theme';
+import { useTheme } from '@/lib/theme-context';
 
 type TabButtonProps = TabTriggerSlotProps & {
   icon: keyof typeof Ionicons.glyphMap;
@@ -26,6 +27,7 @@ const TabButton = forwardRef<View, TabButtonProps>(({ isFocused, icon, label, ..
 TabButton.displayName = 'TabButton';
 
 export default function TabsLayout() {
+  useTheme();
   return (
     <Tabs>
       <TabSlot style={styles.slot} />
@@ -64,7 +66,7 @@ export default function TabsLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   // TabSlot defaults to flexShrink: 0, so a tall screen (e.g. Profile) grows past
   // the viewport and pushes the tab bar off-screen. Let it shrink and scroll instead.
   slot: {
@@ -137,4 +139,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));

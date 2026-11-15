@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Link } from 'expo-router';
 
+import { LogoPicker } from '@/components/logo-picker';
 import { Button } from '@/components/ui/button';
 import { FormError } from '@/components/ui/form-error';
 import { Screen } from '@/components/ui/screen';
 import { AppText } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Spacing, themedStyles } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { getErrorMessage, getFieldErrors, type FieldErrors } from '@/lib/errors';
 import { hasErrors, validateEmail, validateLength, validatePhone } from '@/lib/validators';
+import { useTheme } from '@/lib/theme-context';
 
 function validatePassword(password: string): string {
   if (password.length < 8) return 'Password must be at least 8 characters';
@@ -19,12 +21,14 @@ function validatePassword(password: string): string {
 }
 
 export default function RegisterScreen() {
+  useTheme();
   const { register } = useAuth();
   const [businessName, setBusinessName] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -56,6 +60,7 @@ export default function RegisterScreen() {
         email: email.trim(),
         password,
         phone: phone.trim() || undefined,
+        logoUrl: logoUrl ?? undefined,
       });
       // AuthProvider flips `needsSetup`; the (app) group redirects to /setup itself
       // once its stack mounts (see (app)/_layout.tsx) — replacing here would race
@@ -79,6 +84,12 @@ export default function RegisterScreen() {
       </View>
 
       <View style={styles.form}>
+        <LogoPicker
+          value={logoUrl}
+          onChange={(url) => setLogoUrl(url)}
+          optional
+          hint="Add it now or later. It appears on every receipt."
+        />
         <TextField
           label="Shop name"
           placeholder="Sunita's Cake Studio"
@@ -132,7 +143,7 @@ export default function RegisterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   header: {
     gap: Spacing.one,
     marginTop: Spacing.four,
@@ -145,4 +156,4 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: Spacing.two,
   },
-});
+}));

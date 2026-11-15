@@ -7,8 +7,11 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
 import { ToastProvider } from '@/components/ui/toast';
+import { Colors } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
+import { completeOnboarding, useOnboarding } from '@/lib/onboarding';
 import { queryClient } from '@/lib/query-client';
+import { ThemeProvider, useTheme } from '@/lib/theme-context';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -25,17 +28,26 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <AuthProvider>
-          <RootNavigator />
-        </AuthProvider>
-      </ToastProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <RootNavigator />
+          </AuthProvider>
+        </ToastProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
 
 function RootNavigator() {
+  useTheme();
   const { isLoading, token } = useAuth();
+  const onboarding = useOnboarding();
+
+  // Someone who's already signed in has used the app: never show them onboarding.
+  useEffect(() => {
+    if (token) completeOnboarding();
+  }, [token]);
 
   // The Stack (and expo-router's own linking/URL resolution) must stay
   // mounted continuously — unmounting it while `isLoading` resolves causes
@@ -44,8 +56,8 @@ function RootNavigator() {
   // gap instead, so nothing is visibly wrong while auth state loads.
   return (
     <>
-      <SplashScreenController isLoading={isLoading} />
-      <Stack screenOptions={{ headerShown: false }}>
+      <SplashScreenController isLoading={isLoading || !onboarding.ready} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.background } }}>
         <Stack.Protected guard={!!token}>
           <Stack.Screen name="(app)" />
         </Stack.Protected>

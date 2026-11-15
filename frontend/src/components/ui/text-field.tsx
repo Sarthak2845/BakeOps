@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Platform, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { Platform, TextInput, View, type TextInputProps } from 'react-native';
 
-import { Colors, FontSizes, Fonts, Radii, Spacing } from '@/constants/theme';
+import { Colors, Fonts, FontSizes, Radii, Spacing, themedStyles } from '@/constants/theme';
 import { AppText } from './text';
+import { useTheme } from '@/lib/theme-context';
 
 export type TextFieldProps = TextInputProps & {
   label?: string;
@@ -16,6 +17,7 @@ export type TextFieldProps = TextInputProps & {
 const webBoxSizingFix = Platform.OS === 'web' ? ({ boxSizing: 'border-box', width: '100%' } as object) : null;
 
 export function TextField({ label, error, style, onFocus, onBlur, ...rest }: TextFieldProps) {
+  useTheme();
   const [focused, setFocused] = useState(false);
 
   return (
@@ -44,7 +46,7 @@ export function TextField({ label, error, style, onFocus, onBlur, ...rest }: Tex
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   container: {
     gap: Spacing.one + 2,
   },
@@ -68,4 +70,4 @@ const styles = StyleSheet.create({
   error: {
     paddingHorizontal: Spacing.three,
   },
-});
+}));

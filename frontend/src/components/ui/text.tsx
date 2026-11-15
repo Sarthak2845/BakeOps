@@ -1,6 +1,7 @@
-import { StyleSheet, Text, type TextProps } from 'react-native';
+import { Text, type TextProps } from 'react-native';
 
-import { Colors, FontSizes, Fonts } from '@/constants/theme';
+import { Colors, Fonts, FontSizes, themedStyles } from '@/constants/theme';
+import { useTheme } from '@/lib/theme-context';
 
 export type AppTextProps = TextProps & {
   variant?: 'display' | 'h1' | 'h2' | 'body' | 'bodyMedium' | 'bodyBold' | 'small' | 'eyebrow';
@@ -8,10 +9,11 @@ export type AppTextProps = TextProps & {
 };
 
 export function AppText({ style, variant = 'body', color, ...rest }: AppTextProps) {
+  useTheme();
   return <Text style={[styles.base, styles[variant], color ? { color } : null, style]} {...rest} />;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   base: {
     color: Colors.text,
     fontFamily: Fonts.body,
@@ -58,4 +60,4 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: Colors.textMuted,
   },
-});
+}));

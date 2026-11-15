@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { customersApi, invoicesApi, ordersApi } from './api';
+import { customersApi, invoicesApi, ordersApi, productsApi } from './api';
 import type { OrderStatus, PaymentStatus } from './types';
 
 export function useCustomers(search?: string) {
@@ -23,6 +23,47 @@ export function useCreateCustomer() {
   return useMutation({
     mutationFn: customersApi.create,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['customers'] }),
+  });
+}
+
+export function useProducts(search: string, enabled = true) {
+  return useQuery({
+    queryKey: ['products', search],
+    queryFn: () => productsApi.list(search).then((r) => r.products),
+    enabled,
+  });
+}
+
+export function useCreateProduct() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: productsApi.create,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+  });
+}
+
+export function useBulkCreateProducts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: productsApi.bulkCreate,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+  });
+}
+
+export function useUpdateProduct() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: { name?: string; unitPrice?: number; unit?: string | null } }) =>
+      productsApi.update(id, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+  });
+}
+
+export function useDeleteProduct() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => productsApi.remove(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
   });
 }
 

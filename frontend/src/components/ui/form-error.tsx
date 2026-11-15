@@ -1,14 +1,16 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Colors, Radii, Spacing } from '@/constants/theme';
+import { Colors, Radii, Spacing, themedStyles } from '@/constants/theme';
 import { AppText } from './text';
+import { useTheme } from '@/lib/theme-context';
 
 /**
  * Inline error banner: a form-level error above the submit button, or a
  * "couldn't load" notice at the top of a screen (pass `onRetry`).
  */
 export function FormError({ message, onRetry }: { message?: string | null; onRetry?: () => void }) {
+  useTheme();
   if (!message) return null;
   return (
     <View style={styles.container} accessibilityRole="alert" accessibilityLiveRegion="polite">
@@ -27,7 +29,7 @@ export function FormError({ message, onRetry }: { message?: string | null; onRet
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   container: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -40,4 +42,4 @@ const styles = StyleSheet.create({
   text: {
     flex: 1,
   },
-});
+}));

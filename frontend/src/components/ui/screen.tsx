@@ -1,7 +1,8 @@
-import { ScrollView, StyleSheet, View, type ScrollViewProps } from 'react-native';
+import { ScrollView, View, type ScrollViewProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Colors, MaxContentWidth, Spacing, themedStyles } from '@/constants/theme';
+import { useTheme } from '@/lib/theme-context';
 
 export type ScreenProps = ScrollViewProps & {
   scroll?: boolean;
@@ -9,6 +10,7 @@ export type ScreenProps = ScrollViewProps & {
 };
 
 export function Screen({ children, scroll = true, contentContainerStyle, edges, style, ...rest }: ScreenProps) {
+  useTheme();
   return (
     <SafeAreaView style={styles.safeArea} edges={edges ?? ['top']}>
       <View style={styles.centerer}>
@@ -28,7 +30,7 @@ export function Screen({ children, scroll = true, contentContainerStyle, edges, 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   safeArea: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -47,4 +49,4 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.five,
     gap: Spacing.three,
   },
-});
+}));

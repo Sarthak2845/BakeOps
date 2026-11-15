@@ -32,6 +32,7 @@ export async function register(input: RegisterInput) {
       category: input.category,
       phone: input.phone,
       email: input.email,
+      logoUrl: input.logoUrl,
       users: {
         create: {
           name: input.ownerName,

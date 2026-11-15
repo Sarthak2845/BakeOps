@@ -8,9 +8,12 @@ import type {
   Order,
   OrderStatus,
   PaymentStatus,
+  Product,
 } from './types';
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000';
+// The public website: hosts the customer order-tracking page.
+export const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL ?? 'https://bakeops.sarthak-rana.me').replace(/\/+$/, '');
 
 export interface ApiIssue {
   path: string;
@@ -84,6 +87,7 @@ export const authApi = {
     email: string;
     password: string;
     phone?: string;
+    logoUrl?: string;
   }) {
     return apiFetch<{ token: string; business: Business; user: AuthUser }>('/api/auth/register', {
       method: 'POST',
@@ -140,6 +144,33 @@ export const customersApi = {
   },
 };
 
+export const productsApi = {
+  list(search?: string) {
+    return apiFetch<{ products: Product[] }>(`/api/products${qs({ search })}`);
+  },
+  create(input: { name: string; unitPrice: number; unit?: string }) {
+    return apiFetch<{ product: Product }>('/api/products', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+  bulkCreate(products: { name: string; unitPrice: number; unit?: string }[]) {
+    return apiFetch<{ created: number; skipped: string[] }>('/api/products/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ products }),
+    });
+  },
+  update(id: string, input: { name?: string; unitPrice?: number; unit?: string | null }) {
+    return apiFetch<{ product: Product }>(`/api/products/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    });
+  },
+  remove(id: string) {
+    return apiFetch<void>(`/api/products/${id}`, { method: 'DELETE' });
+  },
+};
+
 export const ordersApi = {
   list(filters: { status?: OrderStatus; customerId?: string; occasionTag?: string; from?: string; to?: string } = {}) {
     return apiFetch<{ orders: Order[] }>(`/api/orders${qs(filters)}`);
@@ -169,6 +200,10 @@ export const ordersApi = {
   },
   remove(id: string) {
     return apiFetch<void>(`/api/orders/${id}`, { method: 'DELETE' });
+  },
+  /** Public tracking page for a customer; no login needed. */
+  trackingUrl(slug: string, orderId: string) {
+    return `${SITE_URL}/track/${encodeURIComponent(slug)}/${encodeURIComponent(orderId)}`;
   },
   generateInvoice(orderId: string) {
     return apiFetch<{ invoice: Invoice }>(`/api/orders/${orderId}/invoice`, { method: 'POST' });

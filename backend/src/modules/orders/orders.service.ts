@@ -211,6 +211,62 @@ export async function updateOrderStatus(businessId: string, orderId: string, sta
   return updated;
 }
 
+/**
+ * Public, no-login order tracking for the customer (<website>/track/:slug/:orderId).
+ * Returns only what the customer needs: never notes, the phone number, or other customers.
+ */
+export async function getPublicOrderTracking(slug: string, orderId: string) {
+  const business = await prisma.business.findUnique({
+    where: { slug },
+    select: { id: true, name: true, slug: true, logoUrl: true, phone: true },
+  });
+  if (!business) {
+    log.warn({ event: "tracking.not_found", slug, orderId, reason: "unknown_business" }, "tracking page not found");
+    throw ApiError.notFound("Order not found");
+  }
+
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, businessId: business.id },
+    include: {
+      items: true,
+      customer: { select: { name: true } },
+      invoice: { select: { invoiceNumber: true, paymentStatus: true } },
+    },
+  });
+  if (!order) {
+    log.warn({ event: "tracking.not_found", businessId: business.id, slug, orderId, reason: "unknown_order" }, "tracking page not found");
+    throw ApiError.notFound("Order not found");
+  }
+
+  log.info({ event: "tracking.viewed", businessId: business.id, orderId }, "tracking page viewed");
+
+  return {
+    business: { name: business.name, slug: business.slug, logoUrl: business.logoUrl, phone: business.phone },
+    order: {
+      id: order.id,
+      status: order.status,
+      orderDate: order.orderDate,
+      deliveryDate: order.deliveryDate,
+      occasionTag: order.occasionTag,
+      updatedAt: order.updatedAt,
+      customerFirstName: order.customer.name.trim().split(/\s+/)[0] ?? "",
+      items: order.items.map((i) => ({ description: i.description, quantity: Number(i.quantity) })),
+      totalAmount: Number(order.totalAmount),
+      advancePaid: Number(order.advancePaid),
+      balanceDue: Number(order.balanceDue),
+      // Once invoiced, the customer can open the receipt and its PDF (both already public).
+      invoice: order.invoice
+        ? {
+            invoiceNumber: order.invoice.invoiceNumber,
+            paymentStatus: order.invoice.paymentStatus,
+            receiptPath: `/r/${encodeURIComponent(business.slug)}/${encodeURIComponent(order.invoice.invoiceNumber)}`,
+            pdfPath: `/r/${encodeURIComponent(business.slug)}/${encodeURIComponent(order.invoice.invoiceNumber)}/pdf`,
+          }
+        : null,
+    },
+  };
+}
+
 export async function deleteOrder(businessId: string, orderId: string) {
   const order = await findOrderOrThrow(businessId, orderId);
   if (order.invoice) {

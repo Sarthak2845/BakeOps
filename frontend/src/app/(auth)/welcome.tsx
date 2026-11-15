@@ -1,14 +1,16 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Image, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Image, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { AppText } from '@/components/ui/text';
-import { BrandGradient, Colors, FontSizes, Fonts, MaxContentWidth, Radii, Spacing } from '@/constants/theme';
+import { BrandGradient, Colors, Fonts, FontSizes, MaxContentWidth, Radii, Spacing, themedStyles } from '@/constants/theme';
+import { useTheme } from '@/lib/theme-context';
 
 export default function WelcomeScreen() {
+  useTheme();
   const logoAnim = useRef(new Animated.Value(0)).current;
   const textAnim = useRef(new Animated.Value(0)).current;
 
@@ -69,7 +71,7 @@ export default function WelcomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   fill: {
     flex: 1,
   },
@@ -135,4 +137,4 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.85,
   },
-});
+}));

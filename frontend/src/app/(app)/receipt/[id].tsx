@@ -10,13 +10,14 @@ import { Pill } from '@/components/ui/pill';
 import { Screen } from '@/components/ui/screen';
 import { AppText } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
-import { Colors, Radii, Spacing } from '@/constants/theme';
+import { Colors, Radii, Spacing, themedStyles } from '@/constants/theme';
 import { API_URL, invoicesApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { formatDate, formatMoney } from '@/lib/format';
 import { copyToClipboard, openUrl, openWhatsApp } from '@/lib/links';
 import { useInvoice } from '@/lib/queries';
 import type { PaymentStatus } from '@/lib/types';
+import { useTheme } from '@/lib/theme-context';
 
 const STATUS_LABEL: Record<PaymentStatus, string> = {
   UNPAID: 'Unpaid',
@@ -25,6 +26,7 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
 };
 
 export default function ReceiptScreen() {
+  useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { business } = useAuth();
   const { data: invoice, isLoading, isError, error, refetch, isRefetching } = useInvoice(id);
@@ -190,7 +192,7 @@ export default function ReceiptScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   centerFill: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -245,4 +247,4 @@ const styles = StyleSheet.create({
   buttonFlex: {
     flex: 1,
   },
-});
+}));

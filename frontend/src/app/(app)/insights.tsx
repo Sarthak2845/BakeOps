@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -9,14 +9,16 @@ import { Screen } from '@/components/ui/screen';
 import { StatTile } from '@/components/ui/stat-tile';
 import { AppText } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
-import { Colors, Radii, Spacing } from '@/constants/theme';
+import { Colors, Radii, Spacing, themedStyles } from '@/constants/theme';
 import { monthRange, ordersInRange, repeatRate, sumTotals, topFlavours } from '@/lib/business-logic';
 import { getErrorMessage } from '@/lib/errors';
 import { exportOrdersCsv } from '@/lib/export';
 import { formatMoney } from '@/lib/format';
 import { useOrders } from '@/lib/queries';
+import { useTheme } from '@/lib/theme-context';
 
 export default function InsightsScreen() {
+  useTheme();
   const { data: orders = [], error: loadError, refetch } = useOrders();
   const toast = useToast();
   const [exporting, setExporting] = useState(false);
@@ -162,7 +164,7 @@ export default function InsightsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -226,4 +228,4 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
     marginTop: Spacing.two,
   },
-});
+}));
