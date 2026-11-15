@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { API_URL, PIPELINE, formatMoney, type OrderStatus } from '@/lib/site';
+import { API_URL, PIPELINE, SITE_HOST, formatMoney, type OrderStatus } from '@/lib/site';
 import { Icon } from './Icon';
 import { ThemeToggle } from './ThemeToggle';
 import { Timeline } from './Timeline';
@@ -194,13 +194,13 @@ export function TrackClient() {
           Your shop sends you a tracking link on WhatsApp when they take your order. Open that link to see where your order is, from
           received to delivered. There&apos;s nothing to install and no login.
         </p>
-        <p className="muted small">Links look like <code>bakeops.me/track/your-shop/…</code></p>
+        <p className="muted small">Links look like <code>{SITE_HOST}/track/your-shop/…</code></p>
         <div className="row">
           <Link href="/track/?demo=1" className="btn btn--primary">
             See a demo <Icon name="arrow" size={16} />
           </Link>
           <Link href="/" className="btn btn--ghost">
-            Back to bakeops.me
+            Back to {SITE_HOST}
           </Link>
         </div>
       </div>

@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { EMAIL, GITHUB_ISSUES, whatsappLink } from '@/lib/site';
+import { EMAIL, GITHUB_ISSUES, SITE_HOST, whatsappLink } from '@/lib/site';
 
 export function Footer() {
-  const wa = whatsappLink('Hi! I found BakeOps on bakeops.me and have a question.');
+  const wa = whatsappLink(`Hi! I found BakeOps on ${SITE_HOST} and have a question.`);
   return (
     <footer className="footer">
       <div className="container footer__inner">
@@ -36,7 +36,7 @@ export function Footer() {
       </div>
       <div className="container footer__bottom muted">
         <span>© {new Date().getFullYear()} BakeOps</span>
-        <span>bakeops.me</span>
+        <span>{SITE_HOST}</span>
       </div>
     </footer>
   );
