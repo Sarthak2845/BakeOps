@@ -1,38 +1,74 @@
 name: Deploy to production
 
-# Runs on every merge into `prod`: test → deploy → wait until live → health check.
-# Render never deploys production by itself (autoDeployTrigger is off in render.yaml);
-# this workflow triggers it through the service's Deploy Hook.
+# Runs on every merge into `prod`:
+#   backend changed  → test → deploy to Render → wait until live → health check
+#   app changed      → publish an over-the-air app update (EAS Update), only after
+#                      the backend is healthy when both changed
+# Render never deploys the production API by itself (autoDeployTrigger is off in
+# render.yaml); this workflow triggers it through the service's Deploy Hook.
 #
-# Secrets/variables (Settings → Secrets and variables → Actions):
+# Secrets/variables (Settings → Environments → production):
 #   RENDER_DEPLOY_HOOK_URL  secret    Render → bakeops-api → Settings → Deploy Hook
 #   RENDER_API_KEY          secret    Render → Account settings → API Keys (lets the job wait for the deploy result)
 #   PRODUCTION_URL          variable  e.g. https://bakeops-api.onrender.com
+#   EXPO_TOKEN              secret    expo.dev → Account settings → Access tokens (publishes app updates)
 
 on:
   push:
     branches: [prod]
     paths:
       - "backend/**"
+      - "frontend/**"
       - "render.yaml"
       - ".github/workflows/deploy-prod.yml"
       - ".github/workflows/backend-ci.yml"
-  workflow_dispatch: # re-run a production deploy by hand from the Actions tab
+  workflow_dispatch: # re-run a production release by hand from the Actions tab (does both)
 
 permissions:
   contents: read
 
-# Never run two production deploys at once; queue them instead.
+# Never run two production releases at once; queue them instead.
 concurrency:
   group: deploy-production
   cancel-in-progress: false
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.diff.outputs.backend }}
+      frontend: ${{ steps.diff.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: What changed
+        id: diff
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          # Manual runs, and pushes with no usable "before" commit, release both.
+          if [ "${{ github.event_name }}" != "push" ] || [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files=$(git diff --name-only "$BEFORE" "${{ github.sha }}")
+          echo "$files"
+          if echo "$files" | grep -qE '^(backend/|render\.yaml|\.github/workflows/(deploy-prod|backend-ci)\.yml)'; then backend=true; else backend=false; fi
+          if echo "$files" | grep -qE '^frontend/'; then frontend=true; else frontend=false; fi
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+          echo "backend=$backend frontend=$frontend"
+
   test:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     uses: ./.github/workflows/backend-ci.yml
 
   deploy:
-    needs: test
+    needs: [changes, test]
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -103,3 +139,71 @@ jobs:
           done
           echo "::error::Production health check failed."
           exit 1
+
+  app-update:
+    needs: [changes, deploy]
+    # Runs when the app changed, and only if the backend deploy succeeded or
+    # wasn't needed: never ship an app that expects a backend that isn't live.
+    # (A failed backend test also shows the deploy as "skipped", so "skipped" only
+    # counts when the backend didn't change at all.)
+    if: >-
+      always() &&
+      needs.changes.outputs.frontend == 'true' &&
+      (needs.deploy.result == 'success' ||
+       (needs.deploy.result == 'skipped' && needs.changes.outputs.backend != 'true'))
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Check configuration
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Missing secret EXPO_TOKEN (expo.dev → Account settings → Access tokens), so the app update can't be published."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # An update only reaches installed APKs built from the same native code
+      # (same "runtime version"). If this commit changed native code (new native
+      # library, Expo upgrade, app.json native settings), no installed APK can
+      # take the update, so stop and ask for a new APK instead.
+      - name: Check an installed APK can take this update
+        run: |
+          rv=$(npx expo-updates runtimeversion:resolve --platform android | tail -n 1 | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).runtimeVersion))")
+          echo "Runtime version: $rv"
+          count=$(eas build:list --platform android --channel production --status finished --runtime-version "$rv" --limit 1 --json --non-interactive | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).length))")
+          if [ "$count" = "0" ]; then
+            echo "::error::Native change detected: no production APK has runtime version $rv, so an over-the-air update can't reach anyone. Build and share a new APK: cd frontend && eas build -p android --profile production"
+            exit 1
+          fi
+          echo "A production APK with this runtime version exists; publishing the update."
+
+      - name: Publish app update
+        env:
+          # Via env, so quotes in a commit message can't break the command.
+          MESSAGE: ${{ github.event.head_commit.message || format('Manual release {0}', github.sha) }}
+        run: |
+          eas update --channel production --environment production --platform android \
+            --message "$MESSAGE" --non-interactive
