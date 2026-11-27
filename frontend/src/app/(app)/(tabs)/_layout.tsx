@@ -5,6 +5,7 @@ import { TabList, TabSlot, TabTrigger, Tabs, type TabTriggerSlotProps } from 'ex
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import { ReminderSync } from '@/components/reminder-sync';
 import { AppText } from '@/components/ui/text';
 import { BrandGradient, Colors, Radii, Spacing, themedStyles } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
@@ -30,6 +31,7 @@ export default function TabsLayout() {
   useTheme();
   return (
     <Tabs>
+      <ReminderSync />
       <TabSlot style={styles.slot} />
 
       <TabList style={styles.hidden}>

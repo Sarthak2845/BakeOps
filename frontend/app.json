@@ -31,7 +31,14 @@
           "imageWidth": 140
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#7C3AED"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
