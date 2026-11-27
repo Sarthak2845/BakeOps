@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
+import { ReminderSettingsCard } from '@/components/reminder-settings';
 import { ShopDetailsForm } from '@/components/shop-details-form';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -96,6 +97,8 @@ export default function ProfileScreen() {
           </AppText>
         ) : null}
       </Card>
+
+      <ReminderSettingsCard />
 
       <AppText variant="h2">Shop details</AppText>
       <ShopDetailsForm submitLabel="Save changes" onSaved={() => toast.success('Shop details saved')} />

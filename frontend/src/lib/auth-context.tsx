@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { useToast } from '@/components/ui/toast';
 
 import { authApi, setAuthToken, setUnauthorizedHandler } from './api';
+import { cancelReminders } from './notifications';
 import { queryClient } from './query-client';
 import { clearStoredSession, getStoredSession, setStoredSession } from './storage';
 import type { AuthUser, Business } from './types';
@@ -88,6 +89,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setBusinessState(null);
     setNeedsSetup(false);
     queryClient.clear();
+    // Another shop may sign in on this phone next: don't keep reminding about this one.
+    void cancelReminders();
   }, []);
 
   // A 401 on an authenticated request means the token expired or was revoked;
